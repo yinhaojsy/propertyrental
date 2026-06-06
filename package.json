@@ -16,7 +16,8 @@
     "db:seed": "npm run build -w @property-rental/shared && npm run db:seed -w @property-rental/api",
     "db:setup": "bash scripts/setup-local.sh",
     "db:users": "bash scripts/db-users.sh",
-    "test:smoke": "npm run test:smoke -w @property-rental/api"
+    "test:smoke": "npm run test:smoke -w @property-rental/api",
+    "start:deploy": "node apps/api/dist/start-with-worker.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

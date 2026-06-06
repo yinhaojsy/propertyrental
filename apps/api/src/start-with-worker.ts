@@ -21,13 +21,27 @@ function launchWorker(): void {
   });
 }
 
-function shutdown(): void {
+function shutdown(serverClose?: () => void): void {
+  if (shuttingDown) return;
   shuttingDown = true;
+  console.log('Shutting down...');
   worker?.kill('SIGTERM');
+  serverClose?.();
+  setTimeout(() => process.exit(0), 8000).unref();
 }
 
-process.on('SIGTERM', shutdown);
-process.on('SIGINT', shutdown);
-
 launchWorker();
-await import('./index.js');
+
+const { start, httpServer } = await import('./index.js');
+await start();
+
+process.on('SIGTERM', () => {
+  shutdown(() => {
+    httpServer?.close(() => process.exit(0));
+  });
+});
+process.on('SIGINT', () => {
+  shutdown(() => {
+    httpServer?.close(() => process.exit(0));
+  });
+});

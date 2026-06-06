@@ -29,11 +29,16 @@ app.use(
 );
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
-app.use(authenticate);
+
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+app.use(authenticate);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/listings', listingRoutes);
@@ -63,7 +68,9 @@ app.use(
   },
 );
 
-async function start() {
+export let httpServer: ReturnType<typeof app.listen> | undefined;
+
+async function start(): Promise<void> {
   try {
     await ensureBucket();
     if (storageMode === 'local') {
@@ -76,12 +83,24 @@ async function start() {
     if (config.nodeEnv === 'production') process.exit(1);
   }
 
-  app.listen(config.port, () => {
-    console.log(`API running on http://localhost:${config.port}`);
-    if (existsSync(config.webDist)) {
-      console.log(`Web app served from ${config.webDist}`);
-    }
+  if (!existsSync(config.webDist)) {
+    console.warn(`Web app not found at ${config.webDist} — only API routes will be served`);
+  }
+
+  return new Promise((resolve) => {
+    httpServer = app.listen(config.port, () => {
+      console.log(`API running on http://localhost:${config.port}`);
+      if (existsSync(config.webDist)) {
+        console.log(`Web app served from ${config.webDist}`);
+      }
+      resolve();
+    });
   });
 }
 
-start();
+const isDirectRun = process.argv[1]?.endsWith('/index.js');
+if (isDirectRun) {
+  start();
+}
+
+export { start };

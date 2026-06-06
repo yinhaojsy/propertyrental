@@ -10,6 +10,7 @@
     "start": "node dist/index.js",
     "start:worker": "node dist/worker.js",
     "start:with-worker": "node dist/start-with-worker.js",
+    "start:deploy": "node dist/start-with-worker.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "db:seed": "tsx src/db/seed.ts",

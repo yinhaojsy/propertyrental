@@ -19,8 +19,12 @@ One Railway service from this repo serves:
 
 | Setting | Value |
 |---|---|
+| **Root Directory** | leave empty (repo root, not `apps/api`) |
 | **Build Command** | `npm run build -w @property-rental/api` |
-| **Start Command** | `npm run start:with-worker -w @property-rental/api` |
+| **Start Command** | `node apps/api/dist/start-with-worker.js` |
+| **Health Check Path** | `/api/health` |
+
+Use **`node ...` directly** for Start Command — do not wrap in `npm run` or `sh -c`, or Railway may SIGTERM the process during health checks.
 
 The API build also compiles the web app. Leave **`VITE_API_URL` unset** — the frontend uses same-origin `/api` requests.
 
@@ -73,8 +77,9 @@ NOTIFY_EMAIL=
 2. Mount path: `/data/uploads`
 3. Set `USE_LOCAL_STORAGE=true` and `UPLOADS_DIR=/data/uploads`
 4. Set `CORS_ORIGIN` and `API_PUBLIC_URL` to your **public Railway domain** (same URL for both)
-5. Start command: `npm run start:with-worker -w @property-rental/api` (no extra `sh -c` wrapper)
-6. Redeploy
+5. Start command: `node apps/api/dist/start-with-worker.js` (from repo root)
+6. Health check path: `/api/health`
+7. Redeploy
 
 Photos are stored on the volume and served at `https://your-app.up.railway.app/uploads/...`.
 
