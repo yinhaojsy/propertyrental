@@ -8,4 +8,5 @@ build/
 coverage/
 .vite/
 uploads/
+web-dist/
 .minio-data/

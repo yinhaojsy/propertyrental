@@ -19,10 +19,12 @@ One Railway service from this repo serves:
 
 | Setting | Value |
 |---|---|
-| **Root Directory** | leave empty (repo root, not `apps/api`) |
-| **Build Command** | `npm run build -w @property-rental/api` |
-| **Start Command** | `node apps/api/dist/start-with-worker.js` |
+| **Root Directory** | `apps/api` is OK (web is copied into `apps/api/web-dist` at build time) |
+| **Build Command** | `npm run build` (runs from `apps/api` if that is the root) |
+| **Start Command** | `node dist/start-with-worker.js` |
 | **Health Check Path** | `/api/health` |
+
+If root directory is **empty** (repo root), use build `npm run build -w @property-rental/api` and start `node apps/api/dist/start-with-worker.js` instead.
 
 Use **`node ...` directly** for Start Command — do not wrap in `npm run` or `sh -c`, or Railway may SIGTERM the process during health checks.
 
