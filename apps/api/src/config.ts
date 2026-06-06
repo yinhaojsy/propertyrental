@@ -1,4 +1,8 @@
 import './load-env.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function requireEnv(key: string, fallback?: string): string {
   const value = process.env[key] ?? fallback;
@@ -6,12 +10,16 @@ function requireEnv(key: string, fallback?: string): string {
   return value;
 }
 
+export const useLocalStorage = process.env.USE_LOCAL_STORAGE === 'true';
+
 export const config = {
   port: parseInt(process.env.PORT ?? '3000', 10),
   nodeEnv: process.env.NODE_ENV ?? 'development',
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
   databaseUrl: requireEnv('DATABASE_URL', `postgresql://${process.env.USER ?? 'postgres'}@localhost:5432/property_rental`),
   redisUrl: requireEnv('REDIS_URL', 'redis://localhost:6379'),
+  /** Disk path for listing photos (set to Railway volume mount, e.g. /data/uploads) */
+  uploadsDir: process.env.UPLOADS_DIR ?? path.resolve(__dirname, '../uploads'),
   jwt: {
     secret: requireEnv('JWT_SECRET', 'dev-secret-change-in-production'),
     accessExpires: process.env.JWT_ACCESS_EXPIRES ?? '15m',
@@ -24,9 +32,9 @@ export const config = {
   s3: {
     endpoint: process.env.S3_ENDPOINT,
     region: process.env.S3_REGION ?? 'us-east-1',
-    bucket: requireEnv('S3_BUCKET', 'property-rental'),
-    accessKey: requireEnv('S3_ACCESS_KEY', 'minioadmin'),
-    secretKey: requireEnv('S3_SECRET_KEY', 'minioadmin'),
+    bucket: useLocalStorage ? (process.env.S3_BUCKET ?? '') : requireEnv('S3_BUCKET', 'property-rental'),
+    accessKey: useLocalStorage ? (process.env.S3_ACCESS_KEY ?? '') : requireEnv('S3_ACCESS_KEY', 'minioadmin'),
+    secretKey: useLocalStorage ? (process.env.S3_SECRET_KEY ?? '') : requireEnv('S3_SECRET_KEY', 'minioadmin'),
     publicUrl: process.env.S3_PUBLIC_URL ?? 'http://localhost:9000/property-rental',
   },
   email: {

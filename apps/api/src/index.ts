@@ -58,7 +58,9 @@ app.use(
 async function start() {
   try {
     await ensureBucket();
-    if (storageMode === 's3') {
+    if (storageMode === 'local') {
+      console.log(`Local storage ready (${config.uploadsDir})`);
+    } else {
       console.log(`S3 storage ready (${config.s3.endpoint}, bucket: ${config.s3.bucket})`);
     }
   } catch (err) {

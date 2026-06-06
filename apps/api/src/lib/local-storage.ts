@@ -1,10 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { config } from '../config.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const uploadsRoot = path.resolve(__dirname, '../../../uploads');
+export const uploadsRoot = config.uploadsDir;
 
 let ready = false;
 

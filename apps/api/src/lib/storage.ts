@@ -32,7 +32,7 @@ export async function ensureBucket(): Promise<void> {
     await ensureLocalStorage();
     storageMode = 'local';
     bucketReady = true;
-    console.log('Using local file storage (apps/api/uploads/)');
+    console.log(`Using local file storage (${config.uploadsDir})`);
     return;
   }
 
@@ -50,7 +50,7 @@ export async function ensureBucket(): Promise<void> {
         await ensureLocalStorage();
         storageMode = 'local';
         bucketReady = true;
-        console.log('MinIO unavailable — using local file storage (apps/api/uploads/)');
+        console.log(`MinIO unavailable — using local file storage (${config.uploadsDir})`);
         return;
       }
       throw err;

@@ -69,7 +69,7 @@ npm run minio:start
 
 - Console: http://127.0.0.1:9001 (`minioadmin` / `minioadmin`)
 
-For production, use Cloudflare R2 or AWS S3 (see `deploy/README.md`).
+For production, use a **Railway volume** (simplest) or Cloudflare R2 / AWS S3 — see [`deploy/README.md`](deploy/README.md).
 
 ## Scripts
 
