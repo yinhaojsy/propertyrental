@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "worker": "tsx watch src/worker.ts",
-    "build": "tsc",
+    "build": "npm run build -w @property-rental/shared && tsc",
     "start": "node dist/index.js",
     "start:worker": "node dist/worker.js",
     "db:generate": "drizzle-kit generate",
