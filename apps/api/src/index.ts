@@ -5,7 +5,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { config } from './config.js';
+import { config, isProd } from './config.js';
 import { authenticate } from './middleware/auth.js';
 import authRoutes from './routes/auth.js';
 import listingRoutes from './routes/listings.js';
@@ -16,6 +16,8 @@ import adminLocationsRoutes from './routes/admin-locations.js';
 import localStorageRoutes from './routes/local-storage.js';
 import { ensureBucket, storageMode } from './lib/storage.js';
 import { uploadsRoot } from './lib/local-storage.js';
+import { runMigrations } from './db/run-migrations.js';
+import { seedDatabase } from './db/seed.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -71,6 +73,18 @@ app.use(
 export let httpServer: ReturnType<typeof app.listen> | undefined;
 
 async function start(): Promise<void> {
+  if (isProd && process.env.RUN_MIGRATIONS_ON_START !== 'false') {
+    try {
+      await runMigrations();
+      if (process.env.RUN_SEED_ON_START !== 'false') {
+        await seedDatabase();
+      }
+    } catch (err) {
+      console.error('Database setup failed:', err instanceof Error ? err.message : err);
+      process.exit(1);
+    }
+  }
+
   try {
     await ensureBucket();
     if (storageMode === 'local') {

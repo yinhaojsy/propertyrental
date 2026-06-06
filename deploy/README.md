@@ -95,6 +95,11 @@ npm run db:migrate -w @property-rental/api && npm run db:seed -w @property-renta
 
 Then open `https://your-app.up.railway.app/search`.
 
+On first production boot, the API automatically runs migrations and seed (creates admin user). Default login unless overridden:
+
+- Email: `admin@test.com` (or your `BOOTSTRAP_ADMIN_EMAIL`)
+- Password: `admin123!` (or your `BOOTSTRAP_ADMIN_PASSWORD`)
+
 ## R2/S3 CORS
 
 Only needed when using S3/R2 (not Railway volume). Allow your app origin for PUT uploads:

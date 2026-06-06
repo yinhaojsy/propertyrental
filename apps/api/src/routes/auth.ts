@@ -27,6 +27,7 @@ import {
   isSessionInactive,
 } from '../lib/session.js';
 import { validateBody } from '../middleware/validate.js';
+import { asyncHandler } from '../middleware/async-handler.js';
 
 const router = Router();
 
@@ -64,7 +65,7 @@ router.post('/register', csrfProtection, validateBody(registerSchema), async (re
   });
 });
 
-router.post('/login', csrfProtection, validateBody(loginSchema), async (req, res) => {
+router.post('/login', csrfProtection, validateBody(loginSchema), asyncHandler(async (req, res) => {
   const { email, password } = req.body;
   const [user] = await db.select().from(users).where(eq(users.email, email));
   if (!user || !user.isActive) {
@@ -111,7 +112,7 @@ router.post('/login', csrfProtection, validateBody(loginSchema), async (req, res
     },
     csrfToken,
   });
-});
+}));
 
 router.post('/logout', csrfProtection, authenticate, requireAuth, async (req: AuthRequest, res) => {
   const refreshToken = req.cookies?.[REFRESH_COOKIE];

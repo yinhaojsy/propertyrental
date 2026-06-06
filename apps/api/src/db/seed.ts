@@ -21,7 +21,7 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, '');
 }
 
-async function seed() {
+export async function seedDatabase(): Promise<void> {
   console.log('Seeding database...');
 
   const cityData = [
@@ -119,10 +119,14 @@ async function seed() {
   }
 
   console.log('Seed complete.');
-  process.exit(0);
 }
 
-seed().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+const isDirectRun = process.argv[1]?.endsWith('/seed.js') || process.argv[1]?.endsWith('/seed.ts');
+if (isDirectRun) {
+  seedDatabase()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
+}

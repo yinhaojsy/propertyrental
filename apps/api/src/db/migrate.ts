@@ -1,11 +1,9 @@
 import '../load-env.js';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { db, pool } from './index.js';
+import { pool } from './index.js';
+import { runMigrations } from './run-migrations.js';
 
 async function run() {
-  console.log('Running migrations...');
-  await migrate(db, { migrationsFolder: './drizzle' });
-  console.log('Migrations complete.');
+  await runMigrations();
   await pool.end();
 }
 
