@@ -29,7 +29,7 @@ USE_LOCAL_STORAGE=true
 UPLOADS_DIR=/data/uploads
 ```
 
-Set the API service **Start Command** to:
+Set the API service **Start Command** to (no extra `sh -c` wrapper):
 
 ```bash
 npm run start:with-worker -w @property-rental/api
