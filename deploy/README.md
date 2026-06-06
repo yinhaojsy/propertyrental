@@ -4,40 +4,49 @@ Deploy to managed cloud (Railway, Render, or Fly.io) with:
 
 - **PostgreSQL** (managed)
 - **Redis** (managed)
+- **One app service** — API + web frontend + background worker
 - **Photo storage:** Railway volume (simple) **or** S3-compatible storage (Cloudflare R2 / AWS S3)
-- **2–3 services:** API (+ worker), Web (static)
 
-## Environment variables
+## Single-service deploy (recommended)
 
-### API (+ worker on same service)
+One Railway service from this repo serves:
+
+- React web app at `/`, `/search`, etc.
+- API at `/api/*`
+- Photos at `/uploads/*`
+
+### Build & start (Railway)
+
+| Setting | Value |
+|---|---|
+| **Build Command** | `npm run build -w @property-rental/api` |
+| **Start Command** | `npm run start:with-worker -w @property-rental/api` |
+
+The API build also compiles the web app. Leave **`VITE_API_URL` unset** — the frontend uses same-origin `/api` requests.
+
+### Environment variables (API service)
 
 ```
-DATABASE_URL=
-REDIS_URL=
-JWT_SECRET=
-CORS_ORIGIN=https://your-web-domain.com
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+REDIS_URL=${{Redis.REDIS_URL}}
+JWT_SECRET=<long random string>
 NODE_ENV=production
+CORS_ORIGIN=https://your-app.up.railway.app
+API_PUBLIC_URL=https://your-app.up.railway.app
 BOOTSTRAP_ADMIN_EMAIL=
 BOOTSTRAP_ADMIN_PASSWORD=
-API_PUBLIC_URL=https://your-api-domain.com
 ```
 
-**Option A — Railway volume (no R2/S3 needed):**
+**Photo storage — Railway volume (no R2/S3):**
 
 ```
 USE_LOCAL_STORAGE=true
 UPLOADS_DIR=/data/uploads
 ```
 
-Set the API service **Start Command** to (no extra `sh -c` wrapper):
+Mount a volume at `/data/uploads` on this service.
 
-```bash
-npm run start:with-worker -w @property-rental/api
-```
-
-The worker must run on the **same service** as the API so both can read/write the volume. Do not deploy a separate worker service when using a volume.
-
-**Option B — Cloudflare R2 / AWS S3:**
+**Photo storage — Cloudflare R2 / AWS S3 (optional):**
 
 ```
 S3_ENDPOINT=
@@ -47,8 +56,6 @@ S3_ACCESS_KEY=
 S3_SECRET_KEY=
 S3_PUBLIC_URL=https://your-cdn-or-public-bucket-url
 ```
-
-Deploy API and worker as separate services (see Dockerfiles).
 
 **Optional email (offer notifications):**
 
@@ -60,43 +67,35 @@ SMTP_PASS=
 NOTIFY_EMAIL=
 ```
 
-### Web (build-time)
+### Railway volume setup
 
-```
-VITE_API_URL=https://your-api-domain.com
-```
-
-## Railway volume setup
-
-1. Open your **API service** → **Settings** → **Volumes** → **Add Volume**
+1. Open your **app service** → **Settings** → **Volumes** → **Add Volume**
 2. Mount path: `/data/uploads`
-3. Add variables on the API service:
+3. Set `USE_LOCAL_STORAGE=true` and `UPLOADS_DIR=/data/uploads`
+4. Set `CORS_ORIGIN` and `API_PUBLIC_URL` to your **public Railway domain** (same URL for both)
+5. Start command: `npm run start:with-worker -w @property-rental/api` (no extra `sh -c` wrapper)
+6. Redeploy
 
-| Variable | Value |
-|---|---|
-| `USE_LOCAL_STORAGE` | `true` |
-| `UPLOADS_DIR` | `/data/uploads` |
-| `API_PUBLIC_URL` | your API public URL (e.g. `https://propertyrental-api.up.railway.app`) |
+Photos are stored on the volume and served at `https://your-app.up.railway.app/uploads/...`.
 
-4. Set **Start Command** to `npm run start:with-worker -w @property-rental/api`
-5. Redeploy
+### First deploy
 
-Photos are stored on the volume and served at `https://your-api-domain.com/uploads/...`.
+Run migrations once on the service:
 
-**Notes:**
+```bash
+npm run db:migrate -w @property-rental/api && npm run db:seed -w @property-rental/api
+```
 
-- Volumes persist across redeploys; container disk does not.
-- Volume size limits depend on your Railway plan.
-- For high traffic or many photos, R2/S3 scales better than a single volume.
+Then open `https://your-app.up.railway.app/search`.
 
 ## R2/S3 CORS
 
-Only needed for Option B. Allow your web origin for PUT uploads:
+Only needed when using S3/R2 (not Railway volume). Allow your app origin for PUT uploads:
 
 ```json
 [
   {
-    "AllowedOrigins": ["https://your-web-domain.com", "http://localhost:5173"],
+    "AllowedOrigins": ["https://your-app.up.railway.app", "http://localhost:5173"],
     "AllowedMethods": ["GET", "PUT", "HEAD"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"]
@@ -109,22 +108,20 @@ Only needed for Option B. Allow your web origin for PUT uploads:
 Build and run locally:
 
 ```bash
-docker build -f deploy/Dockerfile.api -t property-rental-api .
-docker build -f deploy/Dockerfile.worker -t property-rental-worker .
-docker build -f deploy/Dockerfile.web -t property-rental-web .
+docker build -f deploy/Dockerfile.api -t property-rental .
+docker run -p 3000:3000 --env-file .env property-rental
 ```
 
-## Railway example
+Separate web-only container (optional):
 
-1. Create project with Postgres + Redis plugins
-2. Choose photo storage: **Railway volume** (above) **or** R2 bucket + credentials
-3. Deploy API (+ worker via `start:with-worker` if using volume) and Web from repo root
-4. Run migration job once: `npm run db:migrate -w @property-rental/api && npm run db:seed -w @property-rental/api`
+```bash
+docker build -f deploy/Dockerfile.web -t property-rental-web .
+```
 
 ## Smoke test
 
 After deploy:
 
 ```bash
-API_URL=https://your-api-domain.com npm run test:smoke
+API_URL=https://your-app.up.railway.app npm run test:smoke
 ```

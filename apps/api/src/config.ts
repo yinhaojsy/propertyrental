@@ -49,6 +49,8 @@ export const config = {
     adminPassword: process.env.BOOTSTRAP_ADMIN_PASSWORD ?? 'admin123!',
   },
   apiPublicUrl: process.env.API_PUBLIC_URL ?? `http://127.0.0.1:${process.env.PORT ?? '3000'}`,
+  /** Built web app (apps/web/dist) — served by API in production when present */
+  webDist: process.env.WEB_DIST_DIR ?? path.resolve(__dirname, '../../web/dist'),
 };
 
 export const isProd = config.nodeEnv === 'production';

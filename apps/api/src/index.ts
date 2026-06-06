@@ -1,4 +1,5 @@
 import './load-env.js';
+import { existsSync } from 'fs';
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -43,6 +44,13 @@ app.use('/api/admin', adminLocationsRoutes);
 app.use('/api/local-storage', localStorageRoutes);
 app.use('/uploads', express.static(uploadsRoot));
 
+if (existsSync(config.webDist)) {
+  app.use(express.static(config.webDist, { index: false }));
+  app.get(/^(?!\/api|\/uploads).*/, (_req, res) => {
+    res.sendFile(path.join(config.webDist, 'index.html'));
+  });
+}
+
 app.use(
   (
     err: Error,
@@ -70,6 +78,9 @@ async function start() {
 
   app.listen(config.port, () => {
     console.log(`API running on http://localhost:${config.port}`);
+    if (existsSync(config.webDist)) {
+      console.log(`Web app served from ${config.webDist}`);
+    }
   });
 }
 

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "worker": "tsx watch src/worker.ts",
-    "build": "npm run build -w @property-rental/shared && tsc",
+    "build": "npm run build -w @property-rental/shared && npm run build:vite -w @property-rental/web && tsc",
     "start": "node dist/index.js",
     "start:worker": "node dist/worker.js",
     "start:with-worker": "node dist/start-with-worker.js",
