@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatRoomSlotLabel } from '@property-rental/shared';
+import { useGetPhotoConfigQuery } from '../store/api';
 
 interface GalleryPhoto {
   id: number;
   url: string | null;
   originalUrl?: string | null;
+  floor?: string | null;
+  roomType?: string | null;
+  roomLabel?: string | null;
+  roomLabelZh?: string | null;
 }
 
 interface ListingPhotoGalleryProps {
@@ -19,7 +25,42 @@ function photoSrc(photo: GalleryPhoto, fullSize = false): string {
 }
 
 export function ListingPhotoGallery({ photos, fallbackUrl, title }: ListingPhotoGalleryProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { data: photoConfig } = useGetPhotoConfigQuery();
+  const formatOptions = useMemo(
+    () => ({
+      locale: i18n.language,
+      floors: (photoConfig?.floors ?? []).map((f) => ({
+        slug: f.slug,
+        nameEn: f.nameEn,
+        nameZh: f.nameZh,
+      })),
+      roomTypes: (photoConfig?.roomTypes ?? []).map((rt) => ({
+        slug: rt.slug,
+        labelEn: rt.labelEn,
+        labelZh: rt.labelZh,
+        autoNumber: rt.autoNumber,
+      })),
+    }),
+    [i18n.language, photoConfig],
+  );
+
+  const captionFor = useCallback(
+    (photo: GalleryPhoto) => {
+      if (!photo.roomLabel && !photo.roomType) return null;
+      return formatRoomSlotLabel(
+        {
+          floor: photo.floor,
+          roomType: photo.roomType,
+          roomLabel: photo.roomLabel,
+          roomLabelZh: photo.roomLabelZh,
+        },
+        formatOptions,
+      );
+    },
+    [formatOptions],
+  );
+
   const items =
     photos.length > 0
       ? photos
@@ -34,6 +75,7 @@ export function ListingPhotoGallery({ photos, fallbackUrl, title }: ListingPhoto
 
   const active = items[activeIndex];
   const src = photoSrc(active!, true);
+  const activeCaption = active ? captionFor(active) : null;
 
   const goPrev = useCallback(() => {
     setActiveIndex((i) => (i === 0 ? items.length - 1 : i - 1));
@@ -98,8 +140,8 @@ export function ListingPhotoGallery({ photos, fallbackUrl, title }: ListingPhoto
             aria-label={t('listing.openGallery')}
           >
             <img src={src} alt={title} className="h-full w-full object-contain" />
-            <span className="pointer-events-none absolute bottom-3 left-3 rounded bg-black/60 px-2 py-1 text-xs text-white">
-              {t('listing.tapToExpand')}
+            <span className="pointer-events-none absolute bottom-3 left-3 max-w-[70%] rounded bg-black/60 px-2 py-1 text-xs text-white">
+              {activeCaption ?? t('listing.tapToExpand')}
             </span>
           </button>
           {items.length > 1 && (
@@ -156,7 +198,9 @@ export function ListingPhotoGallery({ photos, fallbackUrl, title }: ListingPhoto
         >
           <div className="flex items-center justify-between px-4 py-3 text-white">
             <span className="text-sm">
-              {t('listing.photosCount', { current: activeIndex + 1, total: items.length })}
+              {activeCaption
+                ? `${activeCaption} · ${t('listing.photosCount', { current: activeIndex + 1, total: items.length })}`
+                : t('listing.photosCount', { current: activeIndex + 1, total: items.length })}
             </span>
             <button
               type="button"

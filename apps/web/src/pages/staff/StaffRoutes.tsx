@@ -8,6 +8,7 @@ import { AdminUsersPage } from '../admin/AdminUsersPage';
 import { AdminClientsPage } from '../admin/AdminClientsPage';
 import { AdminLocationsPage } from '../admin/AdminLocationsPage';
 import { AdminPropertyTypesPage } from '../admin/AdminPropertyTypesPage';
+import { AdminPhotoConfigPage } from '../admin/AdminPhotoConfigPage';
 
 export function StaffRoutes() {
   return (
@@ -22,6 +23,7 @@ export function StaffRoutes() {
         <Route path="users" element={<AdminUsersPage />} />
         <Route path="locations" element={<AdminLocationsPage />} />
         <Route path="property-types" element={<AdminPropertyTypesPage />} />
+        <Route path="photo-config" element={<AdminPhotoConfigPage />} />
       </Route>
     </Routes>
   );

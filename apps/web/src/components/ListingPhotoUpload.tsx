@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   DndContext,
@@ -18,19 +18,13 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
-  FLOOR_OPTIONS,
-  ROOM_TYPES,
-  deriveBedsBathsFromPhotoMetadata,
-  formatRoomSlotLabel,
-  suggestRoomLabel,
-  usesFloorForSubtype,
-  type RoomType,
-} from '@property-rental/shared';
-import {
   usePresignPhotoMutation,
   useConfirmPhotoMutation,
   useReorderPhotosMutation,
+  useDeleteListingPhotoMutation,
+  useDeleteAllListingPhotosMutation,
 } from '../store/api';
+import { StructuredPhotoUpload } from './StructuredPhotoUpload';
 
 export interface PhotoItem {
   id: number;
@@ -39,6 +33,7 @@ export interface PhotoItem {
   floor?: string | null;
   roomType?: string | null;
   roomLabel?: string | null;
+  roomLabelZh?: string | null;
   sortOrder: number;
   isCover: boolean;
   uploadMode?: 'structured' | 'bulk' | null;
@@ -54,14 +49,28 @@ interface ListingPhotoUploadProps {
   onEnsureListing: () => Promise<number>;
   onDerivedBedsBaths: (beds: number | null, baths: number | null) => void;
   onRefetch: () => void;
+  readOnly?: boolean;
 }
 
-function SortablePhoto({ photo }: { photo: PhotoItem }) {
+function SortablePhoto({
+  photo,
+  onDelete,
+  onSetCover,
+  busy,
+  readOnly,
+}: {
+  photo: PhotoItem;
+  onDelete: () => void;
+  onSetCover: () => void;
+  busy: boolean;
+  readOnly?: boolean;
+}) {
   const { t } = useTranslation();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: photo.id,
+    disabled: readOnly,
   });
-  const style = { transform: CSS.Transform.toString(transform), transition };
+  const style = readOnly ? undefined : { transform: CSS.Transform.toString(transform), transition };
 
   return (
     <div
@@ -72,16 +81,43 @@ function SortablePhoto({ photo }: { photo: PhotoItem }) {
       }`}
     >
       {photo.url && <img src={photo.url} alt="" className="aspect-square w-full object-cover" draggable={false} />}
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        className="absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white cursor-grab active:cursor-grabbing"
-        aria-label={t('admin.dragToReorder')}
-      >
-        ⋮⋮
-      </button>
-      {photo.isCover && (
+      {!readOnly && (
+        <>
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={busy}
+            className="absolute right-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-xs text-white hover:bg-red-700 disabled:opacity-50"
+            aria-label={t('admin.deletePhoto')}
+          >
+            ×
+          </button>
+          {photo.isCover ? (
+            <span className="absolute left-1 top-1 rounded bg-brand px-1 text-xs text-white">
+              {t('admin.coverPhoto')}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={onSetCover}
+              disabled={busy}
+              className="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-xs text-white hover:bg-brand disabled:opacity-50"
+            >
+              {t('admin.setAsCover')}
+            </button>
+          )}
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="absolute bottom-1 right-1 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white cursor-grab active:cursor-grabbing"
+            aria-label={t('admin.dragToReorder')}
+          >
+            ⋮⋮
+          </button>
+        </>
+      )}
+      {readOnly && photo.isCover && (
         <span className="absolute left-1 top-1 rounded bg-brand px-1 text-xs text-white">
           {t('admin.coverPhoto')}
         </span>
@@ -114,7 +150,6 @@ function reorderPhotosInGroup(
 
 export function ListingPhotoUpload({
   listingId,
-  listingType,
   propertySubtype,
   photos,
   uploadMode,
@@ -122,69 +157,32 @@ export function ListingPhotoUpload({
   onEnsureListing,
   onDerivedBedsBaths,
   onRefetch,
+  readOnly = false,
 }: ListingPhotoUploadProps) {
   const { t } = useTranslation();
   const [presignPhoto] = usePresignPhotoMutation();
   const [confirmPhoto] = useConfirmPhotoMutation();
   const [reorderPhotos] = useReorderPhotosMutation();
+  const [deleteListingPhoto] = useDeleteListingPhotoMutation();
+  const [deleteAllListingPhotos] = useDeleteAllListingPhotosMutation();
 
-  const showFloor = usesFloorForSubtype(propertySubtype);
-  const [floor, setFloor] = useState<(typeof FLOOR_OPTIONS)[number]>('ground');
-  const [roomType, setRoomType] = useState<RoomType>('drawing_room');
-  const [roomLabel, setRoomLabel] = useState('Drawing Room');
   const [uploading, setUploading] = useState(false);
+  const [photoActionId, setPhotoActionId] = useState<number | null>(null);
+  const [clearingAll, setClearingAll] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const photoBusy = uploading || clearingAll || photoActionId != null;
 
   const sortedPhotos = useMemo(
     () => [...photos].sort((a, b) => a.sortOrder - b.sortOrder),
     [photos],
   );
 
-  const photoMeta = useMemo(
-    () =>
-      sortedPhotos.map((p) => ({
-        floor: p.floor,
-        roomType: p.roomType,
-        roomLabel: p.roomLabel,
-        uploadMode: p.uploadMode,
-      })),
+  const bulkPhotos = useMemo(
+    () => sortedPhotos.filter((p) => p.uploadMode === 'bulk'),
     [sortedPhotos],
   );
-
-  useEffect(() => {
-    setRoomLabel(
-      suggestRoomLabel(roomType, showFloor ? floor : null, photoMeta),
-    );
-  }, [roomType, floor, showFloor, photoMeta]);
-
-  useEffect(() => {
-    if (uploadMode !== 'structured' || listingType !== 'residential') return;
-    const hasStructuredMetadata = photoMeta.some(
-      (p) => p.uploadMode !== 'bulk' && p.roomType,
-    );
-    if (!hasStructuredMetadata) return;
-
-    const derived = deriveBedsBathsFromPhotoMetadata(photoMeta);
-    onDerivedBedsBaths(
-      derived.beds > 0 ? derived.beds : null,
-      derived.baths > 0 ? derived.baths : null,
-    );
-  }, [photoMeta, uploadMode, listingType, onDerivedBedsBaths]);
-
-  const groupedPhotos = useMemo(() => {
-    const groups = new Map<string, PhotoItem[]>();
-    for (const photo of sortedPhotos) {
-      const key =
-        photo.uploadMode === 'bulk'
-          ? t('admin.bulkUpload')
-          : formatRoomSlotLabel(photo);
-      const list = groups.get(key) ?? [];
-      list.push(photo);
-      groups.set(key, list);
-    }
-    return [...groups.entries()];
-  }, [sortedPhotos, t]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -192,7 +190,7 @@ export function ListingPhotoUpload({
   );
 
   const handleUpload = async (files: FileList | File[] | null) => {
-    if (!files?.length) return;
+    if (readOnly || !files?.length) return;
     const imageFiles = Array.from(files).filter((file) => file.type.startsWith('image/'));
     if (imageFiles.length === 0) {
       setError(t('admin.uploadImagesOnly'));
@@ -224,14 +222,9 @@ export function ListingPhotoUpload({
           listingId: id,
           data: {
             storageKey,
-            floor: uploadMode === 'structured' && showFloor ? floor : undefined,
-            roomType: uploadMode === 'structured' ? roomType : undefined,
-            roomLabel:
-              uploadMode === 'structured'
-                ? roomLabel.trim() || suggestRoomLabel(roomType, showFloor ? floor : null, photoMeta)
-                : file.name,
+            roomLabel: file.name,
             sortOrder,
-            uploadMode,
+            uploadMode: 'bulk',
             isCover: sortedPhotos.length === 0 && sortOrder === 0,
           },
         }).unwrap()) as { derived?: { beds: number; baths: number } };
@@ -253,6 +246,7 @@ export function ListingPhotoUpload({
   };
 
   const handleDragEnd = async (event: DragEndEvent, groupPhotos: PhotoItem[]) => {
+    if (readOnly) return;
     const { active, over } = event;
     if (!over || active.id === over.id || !listingId) return;
 
@@ -264,7 +258,6 @@ export function ListingPhotoUpload({
     ).map((photo, index) => ({
       ...photo,
       sortOrder: index,
-      isCover: index === 0,
     }));
 
     try {
@@ -273,7 +266,6 @@ export function ListingPhotoUpload({
         photos: reordered.map((p) => ({
           id: p.id,
           sortOrder: p.sortOrder,
-          isCover: p.isCover,
         })),
       }).unwrap();
       onRefetch();
@@ -282,12 +274,75 @@ export function ListingPhotoUpload({
     }
   };
 
+  const applyDerived = (derived?: { beds: number; baths: number }) => {
+    if (!derived) return;
+    onDerivedBedsBaths(
+      derived.beds > 0 ? derived.beds : null,
+      derived.baths > 0 ? derived.baths : null,
+    );
+  };
+
+  const handleDeletePhoto = async (photoId: number) => {
+    if (!listingId || !window.confirm(t('admin.confirmDeletePhoto'))) return;
+    setError(null);
+    setPhotoActionId(photoId);
+    try {
+      const result = await deleteListingPhoto({ listingId, photoId }).unwrap();
+      applyDerived(result.derived);
+      onRefetch();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.error'));
+    } finally {
+      setPhotoActionId(null);
+    }
+  };
+
+  const handleSetCover = async (photoId: number) => {
+    if (!listingId) return;
+    setError(null);
+    setPhotoActionId(photoId);
+    try {
+      await reorderPhotos({
+        listingId,
+        photos: sortedPhotos.map((p) => ({
+          id: p.id,
+          sortOrder: p.sortOrder,
+          isCover: p.id === photoId,
+        })),
+      }).unwrap();
+      onRefetch();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.error'));
+    } finally {
+      setPhotoActionId(null);
+    }
+  };
+
+  const handleClearAllPhotos = async () => {
+    if (!listingId || !window.confirm(t('admin.confirmClearAllPhotos'))) return;
+    setError(null);
+    setClearingAll(true);
+    try {
+      const result = await deleteAllListingPhotos(listingId).unwrap();
+      applyDerived(result.derived);
+      onRefetch();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('common.error'));
+    } finally {
+      setClearingAll(false);
+    }
+  };
+
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
-    if (uploading) return;
+    if (uploading || uploadMode !== 'bulk') return;
     void handleUpload(e.dataTransfer.files);
   };
+
+  const bulkGrouped = [[t('admin.bulkUpload'), bulkPhotos] as const].filter(
+    ([, items]) => items.length > 0,
+  );
 
   return (
     <section className="rounded-xl bg-white p-5 shadow-sm">
@@ -298,73 +353,48 @@ export function ListingPhotoUpload({
         <button
           type="button"
           onClick={() => onUploadModeChange('structured')}
-          className={`rounded-lg px-3 py-1 text-sm ${uploadMode === 'structured' ? 'bg-brand text-white' : 'border'}`}
+          disabled={readOnly}
+          className={`rounded-lg px-3 py-1 text-sm disabled:opacity-50 ${uploadMode === 'structured' ? 'bg-brand text-white' : 'border'}`}
         >
           {t('admin.structuredUpload')}
         </button>
         <button
           type="button"
           onClick={() => onUploadModeChange('bulk')}
-          className={`rounded-lg px-3 py-1 text-sm ${uploadMode === 'bulk' ? 'bg-brand text-white' : 'border'}`}
+          disabled={readOnly}
+          className={`rounded-lg px-3 py-1 text-sm disabled:opacity-50 ${uploadMode === 'bulk' ? 'bg-brand text-white' : 'border'}`}
         >
           {t('admin.bulkUpload')}
         </button>
       </div>
 
-      {uploadMode === 'structured' ? (
-        <div className="mb-4 space-y-3 rounded-lg border border-dashed border-gray-300 p-4">
-          <p className="text-sm font-medium text-gray-800">{t('admin.structuredUploadHint')}</p>
-          <div className={`grid gap-3 ${showFloor ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
-            {showFloor && (
-              <label className="block">
-                <span className="mb-1 block text-xs font-medium text-gray-600">{t('admin.floor')}</span>
-                <select
-                  value={floor}
-                  onChange={(e) => setFloor(e.target.value as (typeof FLOOR_OPTIONS)[number])}
-                  className="w-full rounded-lg border px-3 py-2"
-                >
-                  {FLOOR_OPTIONS.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-600">{t('admin.roomType')}</span>
-              <select
-                value={roomType}
-                onChange={(e) => setRoomType(e.target.value as RoomType)}
-                className="w-full rounded-lg border px-3 py-2"
-              >
-                {ROOM_TYPES.map((r) => (
-                  <option key={r} value={r}>
-                    {r.replace(/_/g, ' ')}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-600">{t('admin.roomLabel')}</span>
-              <input
-                value={roomLabel}
-                onChange={(e) => setRoomLabel(e.target.value)}
-                placeholder="e.g. Bed 1, Drawing Room"
-                className="w-full rounded-lg border px-3 py-2"
-              />
-            </label>
+      {!readOnly && uploadMode === 'structured' ? (
+        <>
+          <div className="mb-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => void handleClearAllPhotos()}
+              disabled={photoBusy || sortedPhotos.length === 0}
+              className="text-sm text-red-600 hover:underline disabled:opacity-50"
+            >
+              {t('admin.clearAllPhotos')}
+            </button>
           </div>
-          <p className="text-xs text-gray-500">
-            {showFloor
-              ? t('admin.structuredHouseHint')
-              : t('admin.structuredFlatHint')}
-          </p>
-        </div>
-      ) : (
+          <StructuredPhotoUpload
+          listingId={listingId}
+          propertySubtype={propertySubtype}
+          photos={photos}
+          onEnsureListing={onEnsureListing}
+          onDerivedBedsBaths={onDerivedBedsBaths}
+          onRefetch={onRefetch}
+          readOnly={readOnly}
+        />
+        </>
+      ) : !readOnly ? (
         <p className="mb-4 text-sm text-gray-600">{t('admin.bulkUploadHint')}</p>
-      )}
+      ) : null}
 
+      {!readOnly && uploadMode === 'bulk' && (
       <div
         className={`mb-4 rounded-xl border-2 border-dashed p-8 text-center transition-colors ${
           uploading
@@ -389,9 +419,7 @@ export function ListingPhotoUpload({
         }}
         onDrop={onDrop}
       >
-        <p className="text-sm font-medium text-gray-700">
-          {uploadMode === 'structured' ? t('admin.uploadToRoom') : t('admin.uploadAllPhotos')}
-        </p>
+        <p className="text-sm font-medium text-gray-700">{t('admin.uploadAllPhotos')}</p>
         <p className="mt-1 text-sm text-gray-500">{t('admin.dropPhotosHint')}</p>
         <label className="mt-4 inline-block cursor-pointer rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark">
           {t('admin.browsePhotos')}
@@ -408,18 +436,63 @@ export function ListingPhotoUpload({
           />
         </label>
       </div>
+      )}
+
+      {readOnly && uploadMode === 'structured' && (
+        <StructuredPhotoUpload
+          listingId={listingId}
+          propertySubtype={propertySubtype}
+          photos={photos}
+          onEnsureListing={onEnsureListing}
+          onDerivedBedsBaths={onDerivedBedsBaths}
+          onRefetch={onRefetch}
+          readOnly
+        />
+      )}
 
       {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
-      {uploading && <p className="mb-3 text-sm text-gray-500">{t('common.loading')}</p>}
+      {uploading && uploadMode === 'bulk' && (
+        <p className="mb-3 text-sm text-gray-500">{t('common.loading')}</p>
+      )}
 
-      {sortedPhotos.length > 0 && (
+      {(uploadMode === 'bulk' ? bulkGrouped : []).length > 0 && (
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">{t('admin.photoReorderHint')}</p>
-          {groupedPhotos.map(([group, groupPhotos]) => (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {!readOnly && (
+              <>
+                <p className="text-sm text-gray-600">{t('admin.photoReorderHint')}</p>
+                <button
+                  type="button"
+                  onClick={() => void handleClearAllPhotos()}
+                  disabled={photoBusy}
+                  className="text-sm text-red-600 hover:underline disabled:opacity-50"
+                >
+                  {t('admin.clearAllPhotos')}
+                </button>
+              </>
+            )}
+          </div>
+          {bulkGrouped.map(([group, groupPhotos]) => (
             <div key={group}>
               <h3 className="mb-2 text-sm font-medium text-gray-700">
                 {group} ({groupPhotos.length})
               </h3>
+              {readOnly ? (
+                <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
+                  {groupPhotos.map((photo) => (
+                    <div key={photo.id} className="relative overflow-hidden rounded-lg border bg-white">
+                      {photo.url && (
+                        <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
+                      )}
+                      {photo.isCover && (
+                        <span className="absolute left-1 top-1 rounded bg-brand px-1 text-xs text-white">
+                          {t('admin.coverPhoto')}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -431,11 +504,19 @@ export function ListingPhotoUpload({
                 >
                   <div className="grid grid-cols-3 gap-2 md:grid-cols-5">
                     {groupPhotos.map((photo) => (
-                      <SortablePhoto key={photo.id} photo={photo} />
+                      <SortablePhoto
+                        key={photo.id}
+                        photo={photo}
+                        busy={photoBusy}
+                        readOnly={readOnly}
+                        onDelete={() => void handleDeletePhoto(photo.id)}
+                        onSetCover={() => void handleSetCover(photo.id)}
+                      />
                     ))}
                   </div>
                 </SortableContext>
               </DndContext>
+              )}
             </div>
           ))}
         </div>

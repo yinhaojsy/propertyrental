@@ -44,6 +44,7 @@ export function StaffPortalLayout() {
       ? [
           { to: '/staff/locations', label: t('admin.locations'), end: false },
           { to: '/staff/property-types', label: t('admin.propertyTypesNav'), end: false },
+          { to: '/staff/photo-config', label: t('admin.photoConfigNav'), end: false },
         ]
       : []),
     ...(canManageUsers ? [{ to: '/staff/users', label: t('admin.users'), end: false }] : []),

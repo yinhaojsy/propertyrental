@@ -1,7 +1,15 @@
 import { Router } from 'express';
 import { eq, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { cities, sectors, propertyTypes, propertySubtypes } from '../db/schema.js';
+import {
+  cities,
+  sectors,
+  propertyTypes,
+  propertySubtypes,
+  photoFloors,
+  photoRoomTypes,
+  photoFloorRoomTypes,
+} from '../db/schema.js';
 
 const router = Router();
 
@@ -60,6 +68,25 @@ router.get('/property-types', async (_req, res, next) => {
       .where(eq(propertySubtypes.isActive, true))
       .orderBy(propertySubtypes.sortOrder, propertySubtypes.nameEn);
     res.json({ types, subtypes });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/photo-config', async (_req, res, next) => {
+  try {
+    const floors = await db
+      .select()
+      .from(photoFloors)
+      .where(eq(photoFloors.isActive, true))
+      .orderBy(photoFloors.sortOrder, photoFloors.nameEn);
+    const roomTypes = await db
+      .select()
+      .from(photoRoomTypes)
+      .where(eq(photoRoomTypes.isActive, true))
+      .orderBy(photoRoomTypes.sortOrder, photoRoomTypes.nameEn);
+    const floorRoomTypes = await db.select().from(photoFloorRoomTypes);
+    res.json({ floors, roomTypes, floorRoomTypes });
   } catch (err) {
     next(err);
   }

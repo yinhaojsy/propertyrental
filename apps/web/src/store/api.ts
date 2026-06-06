@@ -103,6 +103,7 @@ export interface ListingCard {
     floor: string | null;
     roomType: string | null;
     roomLabel: string | null;
+    roomLabelZh?: string | null;
     sortOrder: number;
     isCover: boolean;
   }>;
@@ -144,6 +145,38 @@ export interface PropertySubtype {
   sortOrder: number;
 }
 
+export interface PhotoFloor {
+  id: number;
+  slug: string;
+  nameEn: string;
+  nameZh: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface PhotoRoomType {
+  id: number;
+  slug: string;
+  nameEn: string;
+  nameZh: string;
+  labelEn: string;
+  labelZh: string;
+  autoNumber: boolean;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface PhotoFloorRoomType {
+  floorId: number;
+  roomTypeId: number;
+}
+
+export interface PhotoConfig {
+  floors: PhotoFloor[];
+  roomTypes: PhotoRoomType[];
+  floorRoomTypes: PhotoFloorRoomType[];
+}
+
 export interface User {
   id: number;
   email: string;
@@ -156,7 +189,7 @@ export interface User {
 export const api = createApi({
   reducerPath: 'api',
   baseQuery,
-  tagTypes: ['Listings', 'Listing', 'Offers', 'Users', 'AdminListings', 'Cities', 'Sectors', 'PropertyTypes', 'Me'],
+  tagTypes: ['Listings', 'Listing', 'Offers', 'Users', 'AdminListings', 'Cities', 'Sectors', 'PropertyTypes', 'PhotoConfig', 'Me'],
   endpoints: (builder) => ({
     getCsrf: builder.query<{ csrfToken: string }, void>({
       query: () => '/api/auth/csrf',
@@ -219,6 +252,9 @@ export const api = createApi({
       void
     >({
       query: () => '/api/locations/property-types',
+    }),
+    getPhotoConfig: builder.query<PhotoConfig, void>({
+      query: () => '/api/locations/photo-config',
     }),
     searchListings: builder.query<
       { data: ListingCard[]; pagination: { page: number; limit: number; total: number; totalPages: number } },
@@ -308,6 +344,24 @@ export const api = createApi({
         url: `/api/admin/listings/${listingId}/photos/reorder`,
         method: 'PATCH',
         body: { photos },
+      }),
+    }),
+    deleteListingPhoto: builder.mutation<
+      { ok: boolean; derived?: { beds: number; baths: number } },
+      { listingId: number; photoId: number }
+    >({
+      query: ({ listingId, photoId }) => ({
+        url: `/api/admin/listings/${listingId}/photos/${photoId}`,
+        method: 'DELETE',
+      }),
+    }),
+    deleteAllListingPhotos: builder.mutation<
+      { ok: boolean; derived?: { beds: number; baths: number } },
+      number
+    >({
+      query: (listingId) => ({
+        url: `/api/admin/listings/${listingId}/photos`,
+        method: 'DELETE',
       }),
     }),
     getAdminOffers: builder.query<unknown[], number | void>({
@@ -423,6 +477,52 @@ export const api = createApi({
       query: (id) => ({ url: `/api/admin/property-subtypes/${id}`, method: 'DELETE' }),
       invalidatesTags: ['PropertyTypes'],
     }),
+    getAdminPhotoConfig: builder.query<PhotoConfig, void>({
+      query: () => '/api/admin/photo-config',
+      providesTags: ['PhotoConfig'],
+    }),
+    createPhotoFloor: builder.mutation<PhotoFloor, Record<string, unknown>>({
+      query: (body) => ({ url: '/api/admin/photo-floors', method: 'POST', body }),
+      invalidatesTags: ['PhotoConfig'],
+    }),
+    updatePhotoFloor: builder.mutation<PhotoFloor, { id: number; data: Record<string, unknown> }>({
+      query: ({ id, data }) => ({ url: `/api/admin/photo-floors/${id}`, method: 'PATCH', body: data }),
+      invalidatesTags: ['PhotoConfig'],
+    }),
+    deletePhotoFloor: builder.mutation<{ ok: boolean }, number>({
+      query: (id) => ({ url: `/api/admin/photo-floors/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['PhotoConfig'],
+    }),
+    createPhotoRoomType: builder.mutation<PhotoRoomType, Record<string, unknown>>({
+      query: (body) => ({ url: '/api/admin/photo-room-types', method: 'POST', body }),
+      invalidatesTags: ['PhotoConfig'],
+    }),
+    updatePhotoRoomType: builder.mutation<
+      PhotoRoomType,
+      { id: number; data: Record<string, unknown> }
+    >({
+      query: ({ id, data }) => ({
+        url: `/api/admin/photo-room-types/${id}`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: ['PhotoConfig'],
+    }),
+    deletePhotoRoomType: builder.mutation<{ ok: boolean }, number>({
+      query: (id) => ({ url: `/api/admin/photo-room-types/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['PhotoConfig'],
+    }),
+    setPhotoFloorRoomTypes: builder.mutation<
+      { floorRoomTypes: PhotoFloorRoomType[] },
+      { floorId: number; roomTypeIds: number[] }
+    >({
+      query: ({ floorId, roomTypeIds }) => ({
+        url: `/api/admin/photo-floors/${floorId}/room-types`,
+        method: 'PUT',
+        body: { roomTypeIds },
+      }),
+      invalidatesTags: ['PhotoConfig'],
+    }),
   }),
 });
 
@@ -448,6 +548,8 @@ export const {
   usePresignPhotoMutation,
   useConfirmPhotoMutation,
   useReorderPhotosMutation,
+  useDeleteListingPhotoMutation,
+  useDeleteAllListingPhotosMutation,
   useGetAdminOffersQuery,
   useCreateRentalRecordMutation,
   useGetAdminUsersQuery,
@@ -470,4 +572,13 @@ export const {
   useCreatePropertySubtypeMutation,
   useUpdatePropertySubtypeMutation,
   useDeletePropertySubtypeMutation,
+  useGetPhotoConfigQuery,
+  useGetAdminPhotoConfigQuery,
+  useCreatePhotoFloorMutation,
+  useUpdatePhotoFloorMutation,
+  useDeletePhotoFloorMutation,
+  useCreatePhotoRoomTypeMutation,
+  useUpdatePhotoRoomTypeMutation,
+  useDeletePhotoRoomTypeMutation,
+  useSetPhotoFloorRoomTypesMutation,
 } = api;

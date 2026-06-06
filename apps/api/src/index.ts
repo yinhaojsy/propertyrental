@@ -13,6 +13,7 @@ import locationRoutes from './routes/locations.js';
 import offerRoutes from './routes/offers.js';
 import adminRoutes from './routes/admin.js';
 import adminLocationsRoutes from './routes/admin-locations.js';
+import adminPhotoConfigRoutes from './routes/admin-photo-config.js';
 import localStorageRoutes from './routes/local-storage.js';
 import { ensureBucket, storageMode } from './lib/storage.js';
 import { uploadsRoot } from './lib/local-storage.js';
@@ -48,6 +49,7 @@ app.use('/api/locations', locationRoutes);
 app.use('/api/offers', offerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin', adminLocationsRoutes);
+app.use('/api/admin', adminPhotoConfigRoutes);
 app.use('/api/local-storage', localStorageRoutes);
 app.use('/uploads', express.static(uploadsRoot));
 
@@ -112,9 +114,10 @@ async function start(): Promise<void> {
   });
 }
 
-const isDirectRun = process.argv[1]?.endsWith('/index.js');
+const entry = process.argv[1] ?? '';
+const isDirectRun = entry.endsWith('/index.js') || entry.endsWith('/index.ts');
 if (isDirectRun) {
-  start();
+  void start();
 }
 
 export { start };

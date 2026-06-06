@@ -242,6 +242,7 @@ export async function getListingBySlugOrId(slugOrId: string) {
       floor: p.floor,
       roomType: p.roomType,
       roomLabel: p.roomLabel,
+      roomLabelZh: p.roomLabelZh,
       sortOrder: p.sortOrder,
       isCover: p.isCover,
     })),
@@ -262,6 +263,30 @@ export async function deriveBedsBathsFromPhotos(listingId: number) {
       uploadMode: p.uploadMode,
     })),
   );
+}
+
+export async function syncListingBedsBathsFromPhotos(listingId: number) {
+  const photos = await db
+    .select()
+    .from(listingPhotos)
+    .where(eq(listingPhotos.listingId, listingId));
+
+  const hasStructured = photos.some(
+    (p) => p.uploadMode === 'structured' && p.roomType,
+  );
+  if (!hasStructured) return null;
+
+  const derived = await deriveBedsBathsFromPhotos(listingId);
+  await db
+    .update(listings)
+    .set({
+      beds: derived.beds > 0 ? derived.beds : null,
+      baths: derived.baths > 0 ? derived.baths : null,
+      updatedAt: new Date(),
+    })
+    .where(eq(listings.id, listingId));
+
+  return derived;
 }
 
 export function computeAreaSqft(areaValue?: number | null, areaUnit?: string | null) {

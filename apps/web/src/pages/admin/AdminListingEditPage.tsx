@@ -18,6 +18,7 @@ import { NumberInput } from '../../components/NumberInput';
 import { ListingPhotoUpload, type PhotoItem } from '../../components/ListingPhotoUpload';
 import { AreaInput } from '../../components/AreaInput';
 import { convertToSqFt, type AreaUnit } from '@property-rental/shared';
+import { labelFor } from '../../lib/labels';
 
 const FORM_STORAGE_KEY = 'listing-edit-form';
 
@@ -104,7 +105,7 @@ export function AdminListingEditPage() {
     skip: !effectiveListingId,
   });
   const [createRentalRecord] = useCreateRentalRecordMutation();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -151,8 +152,12 @@ export function AdminListingEditPage() {
     (s) => propertyTypes.find((pt) => pt.id === s.propertyTypeId)?.slug === form.listingType,
   );
 
-  const sectorOptions = sectors.map((s) => ({ value: s.id, label: s.nameEn }));
-  const bedsBathsFromPhotos =
+  const sectorOptions = sectors.map((s) => ({
+    value: s.id,
+    label: labelFor(s.nameEn, s.nameZh, i18n.language, s.slug),
+  }));
+  const isListingLocked = effectiveListingId != null && listingStatus !== 'draft';
+  const isStructuredResidential =
     uploadMode === 'structured' && form.listingType === 'residential';
 
   useEffect(() => {
@@ -332,6 +337,12 @@ export function AdminListingEditPage() {
         {isNew && !effectiveListingId ? t('admin.newListing') : t('admin.editListing')}
       </h1>
 
+      {isListingLocked && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {t('admin.listingLockedHelp')}
+        </p>
+      )}
+
       <div className="grid gap-4 rounded-xl bg-white p-5 shadow-sm md:grid-cols-2">
         <label>
           <span className="text-sm">{t('admin.selectCity')}</span>
@@ -340,12 +351,13 @@ export function AdminListingEditPage() {
             onChange={(e) =>
               setForm({ ...form, cityId: Number(e.target.value), sectorId: 0 })
             }
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            disabled={isListingLocked}
+            className="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100"
           >
             <option value="">Select</option>
             {cities.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.nameEn}
+                {labelFor(c.nameEn, c.nameZh, i18n.language, c.slug)}
               </option>
             ))}
           </select>
@@ -356,7 +368,7 @@ export function AdminListingEditPage() {
             options={sectorOptions}
             value={form.sectorId || null}
             onChange={(next) => setForm({ ...form, sectorId: Number(next) })}
-            disabled={!form.cityId}
+            disabled={!form.cityId || isListingLocked}
             placeholder={t('admin.selectSector')}
             searchPlaceholder={t('search.searchSectors')}
             emptyMessage={t('search.noSectors')}
@@ -378,11 +390,12 @@ export function AdminListingEditPage() {
                 propertySubtype: firstSubtype?.slug ?? form.propertySubtype,
               });
             }}
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            disabled={isListingLocked}
+            className="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100"
           >
             {propertyTypes.map((type) => (
               <option key={type.id} value={type.slug}>
-                {type.nameEn}
+                {labelFor(type.nameEn, type.nameZh, i18n.language, type.slug)}
               </option>
             ))}
           </select>
@@ -392,11 +405,12 @@ export function AdminListingEditPage() {
           <select
             value={form.propertySubtype}
             onChange={(e) => setForm({ ...form, propertySubtype: e.target.value })}
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            disabled={isListingLocked}
+            className="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100"
           >
             {subtypesForType.map((subtype) => (
               <option key={subtype.id} value={subtype.slug}>
-                {subtype.nameEn}
+                {labelFor(subtype.nameEn, subtype.nameZh, i18n.language, subtype.slug)}
               </option>
             ))}
           </select>
@@ -410,7 +424,8 @@ export function AdminListingEditPage() {
             min={0}
             value={form.rentAmount}
             onValueChange={(rentAmount) => setForm({ ...form, rentAmount })}
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            disabled={isListingLocked}
+            className="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100"
             required
           />
         </label>
@@ -418,6 +433,7 @@ export function AdminListingEditPage() {
           <AreaInput
             areaSqft={form.areaSqft}
             onAreaSqftChange={(areaSqft) => setForm({ ...form, areaSqft })}
+            disabled={isListingLocked}
           />
         </div>
         <label>
@@ -425,7 +441,8 @@ export function AdminListingEditPage() {
           <input
             value={form.titleEn}
             onChange={(e) => setForm({ ...form, titleEn: e.target.value })}
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            disabled={isListingLocked}
+            className="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100"
           />
         </label>
         <label>
@@ -433,7 +450,8 @@ export function AdminListingEditPage() {
           <input
             value={form.titleZh}
             onChange={(e) => setForm({ ...form, titleZh: e.target.value })}
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            disabled={isListingLocked}
+            className="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100"
           />
         </label>
         <label className="md:col-span-2">
@@ -441,7 +459,8 @@ export function AdminListingEditPage() {
           <textarea
             value={form.descriptionEn}
             onChange={(e) => setForm({ ...form, descriptionEn: e.target.value })}
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            disabled={isListingLocked}
+            className="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100"
             rows={3}
           />
         </label>
@@ -457,44 +476,44 @@ export function AdminListingEditPage() {
         onEnsureListing={ensureListing}
         onDerivedBedsBaths={handleDerivedBedsBaths}
         onRefetch={refetch}
+        readOnly={isListingLocked}
       />
 
       <div className="grid gap-4 rounded-xl bg-white p-5 shadow-sm md:grid-cols-2">
-        <label>
-          <span className="text-sm">Beds</span>
-          <NumberInput
-            min={0}
-            value={form.beds}
-            onValueChange={(beds) => setForm({ ...form, beds })}
-            disabled={bedsBathsFromPhotos}
-            className="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100"
-          />
-          {bedsBathsFromPhotos && (
-            <span className="mt-1 block text-xs text-gray-500">{t('admin.bedsFromPhotos')}</span>
-          )}
-        </label>
-        <label>
-          <span className="text-sm">Baths</span>
-          <NumberInput
-            min={0}
-            value={form.baths}
-            onValueChange={(baths) => setForm({ ...form, baths })}
-            disabled={bedsBathsFromPhotos}
-            className="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100"
-          />
-          {bedsBathsFromPhotos && (
-            <span className="mt-1 block text-xs text-gray-500">{t('admin.bathsFromPhotos')}</span>
-          )}
-        </label>
-        {uploadMode === 'bulk' && form.listingType === 'residential' && (
-          <p className="md:col-span-2 text-xs text-gray-500">{t('admin.bulkBedsHint')}</p>
+        {!isStructuredResidential && (
+          <>
+            <label>
+              <span className="text-sm">Beds</span>
+              <NumberInput
+                min={0}
+                value={form.beds}
+                onValueChange={(beds) => setForm({ ...form, beds })}
+                disabled={isListingLocked}
+                className="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100"
+              />
+            </label>
+            <label>
+              <span className="text-sm">Baths</span>
+              <NumberInput
+                min={0}
+                value={form.baths}
+                onValueChange={(baths) => setForm({ ...form, baths })}
+                disabled={isListingLocked}
+                className="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100"
+              />
+            </label>
+            {uploadMode === 'bulk' && form.listingType === 'residential' && !isListingLocked && (
+              <p className="md:col-span-2 text-xs text-gray-500">{t('admin.bulkBedsHint')}</p>
+            )}
+          </>
         )}
         <label>
           <span className="text-sm">Contact Phone</span>
           <input
             value={form.contactPhone}
             onChange={(e) => setForm({ ...form, contactPhone: e.target.value })}
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            disabled={isListingLocked}
+            className="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100"
           />
         </label>
         <label>
@@ -502,7 +521,8 @@ export function AdminListingEditPage() {
           <input
             value={form.contactEmail}
             onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
-            className="mt-1 w-full rounded-lg border px-3 py-2"
+            disabled={isListingLocked}
+            className="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100"
           />
         </label>
       </div>
@@ -510,7 +530,7 @@ export function AdminListingEditPage() {
       <button
         type="button"
         onClick={handleSave}
-        disabled={isSaving}
+        disabled={isSaving || isListingLocked}
         className="rounded-xl bg-brand px-6 py-3 font-semibold text-white disabled:opacity-50"
       >
         {isSaving ? t('common.loading') : t('admin.save')}

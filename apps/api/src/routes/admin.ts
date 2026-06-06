@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { eq, desc, and, inArray } from 'drizzle-orm';
+import { eq, desc, asc, and, inArray } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
 import {
   createListingSchema,
@@ -36,6 +36,7 @@ import {
   computeAreaSqft,
   createListingSlug,
   deriveBedsBathsFromPhotos,
+  syncListingBedsBathsFromPhotos,
   getDashboardStats,
 } from '../services/listings.js';
 import { getPresignedUploadUrl } from '../lib/storage.js';
@@ -372,6 +373,7 @@ router.post(
           floor: data.floor,
           roomType: data.roomType,
           roomLabel: data.roomLabel,
+          roomLabelZh: data.roomLabelZh,
           sortOrder: data.sortOrder,
           isCover: data.isCover,
           uploadMode: data.uploadMode,
@@ -451,6 +453,22 @@ router.patch(
 );
 
 router.delete(
+  '/listings/:id/photos',
+  csrfProtection,
+  requirePermission('listings:write'),
+  async (req, res, next) => {
+    try {
+      const listingId = parseInt(String(req.params.id), 10);
+      await db.delete(listingPhotos).where(eq(listingPhotos.listingId, listingId));
+      const derived = await syncListingBedsBathsFromPhotos(listingId);
+      res.json({ ok: true, derived: derived ?? undefined });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.delete(
   '/listings/:id/photos/:photoId',
   csrfProtection,
   requirePermission('listings:write'),
@@ -458,10 +476,37 @@ router.delete(
     try {
       const listingId = parseInt(String(req.params.id), 10);
       const photoId = parseInt(String(req.params.photoId), 10);
+      const [photo] = await db
+        .select()
+        .from(listingPhotos)
+        .where(and(eq(listingPhotos.id, photoId), eq(listingPhotos.listingId, listingId)));
+      if (!photo) {
+        res.status(404).json({ error: 'Photo not found' });
+        return;
+      }
+
+      const wasCover = photo.isCover;
       await db
         .delete(listingPhotos)
         .where(and(eq(listingPhotos.id, photoId), eq(listingPhotos.listingId, listingId)));
-      res.json({ ok: true });
+
+      if (wasCover) {
+        const [nextCover] = await db
+          .select()
+          .from(listingPhotos)
+          .where(eq(listingPhotos.listingId, listingId))
+          .orderBy(asc(listingPhotos.sortOrder))
+          .limit(1);
+        if (nextCover) {
+          await db
+            .update(listingPhotos)
+            .set({ isCover: true })
+            .where(eq(listingPhotos.id, nextCover.id));
+        }
+      }
+
+      const derived = await syncListingBedsBathsFromPhotos(listingId);
+      res.json({ ok: true, derived: derived ?? undefined });
     } catch (err) {
       next(err);
     }

@@ -5,13 +5,11 @@ import {
   BED_OPTIONS,
   CITIES,
   COMMERCIAL_SUBTYPES,
-  FLOOR_OPTIONS,
   INDUSTRIAL_SUBTYPES,
   LISTING_STATUSES,
   LISTING_TYPES,
   RESIDENTIAL_SUBTYPES,
   ROLES,
-  ROOM_TYPES,
   SEARCH_SORT_OPTIONS,
 } from './enums.js';
 
@@ -131,9 +129,10 @@ export const createUserSchema = z.object({
 export const photoUploadRequestSchema = z.object({
   filename: z.string().min(1),
   contentType: z.string().regex(/^image\//),
-  floor: z.enum(FLOOR_OPTIONS).optional(),
-  roomType: z.enum(ROOM_TYPES).optional(),
+  floor: z.string().max(50).optional(),
+  roomType: z.string().max(50).optional(),
   roomLabel: z.string().max(100).optional(),
+  roomLabelZh: z.string().max(100).optional(),
   sortOrder: z.number().int().min(0).default(0),
   isCover: z.boolean().default(false),
   uploadMode: z.enum(['structured', 'bulk']).default('structured'),
@@ -141,9 +140,10 @@ export const photoUploadRequestSchema = z.object({
 
 export const photoConfirmSchema = z.object({
   storageKey: z.string().min(1),
-  floor: z.enum(FLOOR_OPTIONS).optional(),
-  roomType: z.enum(ROOM_TYPES).optional(),
+  floor: z.string().max(50).optional(),
+  roomType: z.string().max(50).optional(),
   roomLabel: z.string().max(100).optional(),
+  roomLabelZh: z.string().max(100).optional(),
   sortOrder: z.number().int().min(0).default(0),
   isCover: z.boolean().default(false),
   uploadMode: z.enum(['structured', 'bulk']).default('structured'),
@@ -187,7 +187,7 @@ export const updateSectorSchema = createSectorSchema.omit({ cityId: true }).part
 export const createPropertyTypeSchema = z.object({
   slug: slugSchema.optional(),
   nameEn: z.string().min(1).max(100),
-  nameZh: z.string().max(100).optional(),
+  nameZh: z.string().min(1).max(100),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().min(0).default(0),
 });
@@ -198,7 +198,7 @@ export const createPropertySubtypeSchema = z.object({
   propertyTypeId: z.number().int().positive(),
   slug: slugSchema.optional(),
   nameEn: z.string().min(1).max(100),
-  nameZh: z.string().max(100).optional(),
+  nameZh: z.string().min(1).max(100),
   isActive: z.boolean().default(true),
   sortOrder: z.number().int().min(0).default(0),
 });
@@ -206,6 +206,33 @@ export const createPropertySubtypeSchema = z.object({
 export const updatePropertySubtypeSchema = createPropertySubtypeSchema
   .omit({ propertyTypeId: true })
   .partial();
+
+export const createPhotoFloorSchema = z.object({
+  slug: slugSchema.optional(),
+  nameEn: z.string().min(1).max(100),
+  nameZh: z.string().min(1).max(100),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).default(0),
+});
+
+export const updatePhotoFloorSchema = createPhotoFloorSchema.partial();
+
+export const createPhotoRoomTypeSchema = z.object({
+  slug: slugSchema.optional(),
+  nameEn: z.string().min(1).max(100),
+  nameZh: z.string().min(1).max(100),
+  labelEn: z.string().min(1).max(100),
+  labelZh: z.string().min(1).max(100),
+  autoNumber: z.boolean().default(false),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().int().min(0).default(0),
+});
+
+export const updatePhotoRoomTypeSchema = createPhotoRoomTypeSchema.partial();
+
+export const setPhotoFloorRoomTypesSchema = z.object({
+  roomTypeIds: z.array(z.number().int().positive()),
+});
 
 export type SearchListingsInput = z.infer<typeof searchListingsSchema>;
 export type CreateListingInput = z.infer<typeof createListingSchema>;

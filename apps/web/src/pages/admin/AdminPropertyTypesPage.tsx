@@ -8,7 +8,11 @@ import {
   useCreatePropertySubtypeMutation,
   useUpdatePropertySubtypeMutation,
   useDeletePropertySubtypeMutation,
+  type PropertySubtype,
+  type PropertyType,
 } from '../../store/api';
+
+type NameForm = { nameEn: string; nameZh: string };
 
 export function AdminPropertyTypesPage() {
   const { t } = useTranslation();
@@ -31,14 +35,27 @@ export function AdminPropertyTypesPage() {
   const [updateSubtype] = useUpdatePropertySubtypeMutation();
   const [deleteSubtype] = useDeletePropertySubtypeMutation();
 
-  const [typeForm, setTypeForm] = useState({ nameEn: '', nameZh: '', slug: '' });
-  const [subtypeForm, setSubtypeForm] = useState({ nameEn: '', nameZh: '', slug: '' });
+  const [typeForm, setTypeForm] = useState<NameForm & { slug: string }>({
+    nameEn: '',
+    nameZh: '',
+    slug: '',
+  });
+  const [subtypeForm, setSubtypeForm] = useState<NameForm & { slug: string }>({
+    nameEn: '',
+    nameZh: '',
+    slug: '',
+  });
+
+  const [editingTypeId, setEditingTypeId] = useState<number | null>(null);
+  const [typeEditForm, setTypeEditForm] = useState<NameForm>({ nameEn: '', nameZh: '' });
+  const [editingSubtypeId, setEditingSubtypeId] = useState<number | null>(null);
+  const [subtypeEditForm, setSubtypeEditForm] = useState<NameForm>({ nameEn: '', nameZh: '' });
 
   const handleCreateType = async (e: React.FormEvent) => {
     e.preventDefault();
     await createType({
       nameEn: typeForm.nameEn,
-      nameZh: typeForm.nameZh || undefined,
+      nameZh: typeForm.nameZh,
       slug: typeForm.slug || undefined,
     }).unwrap();
     setTypeForm({ nameEn: '', nameZh: '', slug: '' });
@@ -50,10 +67,30 @@ export function AdminPropertyTypesPage() {
     await createSubtype({
       propertyTypeId: typeId,
       nameEn: subtypeForm.nameEn,
-      nameZh: subtypeForm.nameZh || undefined,
+      nameZh: subtypeForm.nameZh,
       slug: subtypeForm.slug || undefined,
     }).unwrap();
     setSubtypeForm({ nameEn: '', nameZh: '', slug: '' });
+  };
+
+  const startEditType = (type: PropertyType) => {
+    setEditingTypeId(type.id);
+    setTypeEditForm({ nameEn: type.nameEn, nameZh: type.nameZh ?? '' });
+  };
+
+  const saveTypeEdit = async (id: number) => {
+    await updateType({ id, data: typeEditForm }).unwrap();
+    setEditingTypeId(null);
+  };
+
+  const startEditSubtype = (subtype: PropertySubtype) => {
+    setEditingSubtypeId(subtype.id);
+    setSubtypeEditForm({ nameEn: subtype.nameEn, nameZh: subtype.nameZh ?? '' });
+  };
+
+  const saveSubtypeEdit = async (id: number) => {
+    await updateSubtype({ id, data: subtypeEditForm }).unwrap();
+    setEditingSubtypeId(null);
   };
 
   if (isLoading) return <p>{t('common.loading')}</p>;
@@ -77,6 +114,7 @@ export function AdminPropertyTypesPage() {
             value={typeForm.nameZh}
             onChange={(e) => setTypeForm({ ...typeForm, nameZh: e.target.value })}
             className="rounded-lg border px-3 py-2"
+            required
           />
           <input
             placeholder={t('admin.slugOptional')}
@@ -89,52 +127,106 @@ export function AdminPropertyTypesPage() {
           </button>
         </form>
 
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left text-gray-500">
-              <th className="p-3">{t('admin.nameEn')}</th>
-              <th className="p-3">{t('admin.slug')}</th>
-              <th className="p-3">{t('admin.active')}</th>
-              <th className="p-3">{t('admin.actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {types.map((type) => (
-              <tr key={type.id} className="border-b">
-                <td className="p-3">
-                  <input
-                    defaultValue={type.nameEn}
-                    onBlur={(e) => {
-                      if (e.target.value !== type.nameEn) {
-                        updateType({ id: type.id, data: { nameEn: e.target.value } });
-                      }
-                    }}
-                    className="w-full rounded border px-2 py-1"
-                  />
-                </td>
-                <td className="p-3 font-mono text-xs">{type.slug}</td>
-                <td className="p-3">
-                  <input
-                    type="checkbox"
-                    checked={type.isActive}
-                    onChange={(e) =>
-                      updateType({ id: type.id, data: { isActive: e.target.checked } })
-                    }
-                  />
-                </td>
-                <td className="p-3">
-                  <button
-                    type="button"
-                    onClick={() => deleteType(type.id)}
-                    className="text-red-600 hover:underline"
-                  >
-                    {t('admin.delete')}
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-gray-500">
+                <th className="p-3">{t('admin.nameEn')}</th>
+                <th className="p-3">{t('admin.nameZh')}</th>
+                <th className="p-3">{t('admin.slug')}</th>
+                <th className="p-3">{t('admin.active')}</th>
+                <th className="p-3">{t('admin.actions')}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {types.map((type) => {
+                const isEditing = editingTypeId === type.id;
+                return (
+                  <tr key={type.id} className="border-b">
+                    <td className="p-3">
+                      {isEditing ? (
+                        <input
+                          value={typeEditForm.nameEn}
+                          onChange={(e) =>
+                            setTypeEditForm({ ...typeEditForm, nameEn: e.target.value })
+                          }
+                          className="w-full rounded border px-2 py-1"
+                          required
+                        />
+                      ) : (
+                        type.nameEn
+                      )}
+                    </td>
+                    <td className="p-3">
+                      {isEditing ? (
+                        <input
+                          value={typeEditForm.nameZh}
+                          onChange={(e) =>
+                            setTypeEditForm({ ...typeEditForm, nameZh: e.target.value })
+                          }
+                          className="w-full rounded border px-2 py-1"
+                          required
+                        />
+                      ) : (
+                        type.nameZh || '—'
+                      )}
+                    </td>
+                    <td className="p-3 font-mono text-xs">{type.slug}</td>
+                    <td className="p-3">
+                      <input
+                        type="checkbox"
+                        checked={type.isActive}
+                        disabled={isEditing}
+                        onChange={(e) =>
+                          updateType({ id: type.id, data: { isActive: e.target.checked } })
+                        }
+                      />
+                    </td>
+                    <td className="p-3">
+                      <div className="flex flex-wrap gap-3">
+                        {isEditing ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => saveTypeEdit(type.id)}
+                              className="text-brand hover:underline"
+                            >
+                              {t('admin.save')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingTypeId(null)}
+                              className="text-gray-600 hover:underline"
+                            >
+                              {t('admin.cancel')}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => startEditType(type)}
+                              className="text-brand hover:underline"
+                            >
+                              {t('admin.edit')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteType(type.id)}
+                              className="text-red-600 hover:underline"
+                            >
+                              {t('admin.delete')}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section className="space-y-4 rounded-xl bg-white p-5 shadow-sm">
@@ -142,7 +234,10 @@ export function AdminPropertyTypesPage() {
           <h2 className="font-semibold">{t('admin.subtypes')}</h2>
           <select
             value={typeId ?? ''}
-            onChange={(e) => setSelectedTypeId(Number(e.target.value))}
+            onChange={(e) => {
+              setSelectedTypeId(Number(e.target.value));
+              setEditingSubtypeId(null);
+            }}
             className="rounded-lg border px-3 py-2"
           >
             {types.map((type) => (
@@ -167,6 +262,7 @@ export function AdminPropertyTypesPage() {
               value={subtypeForm.nameZh}
               onChange={(e) => setSubtypeForm({ ...subtypeForm, nameZh: e.target.value })}
               className="rounded-lg border px-3 py-2"
+              required
             />
             <input
               placeholder={t('admin.slugOptional')}
@@ -180,52 +276,106 @@ export function AdminPropertyTypesPage() {
           </form>
         )}
 
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left text-gray-500">
-              <th className="p-3">{t('admin.nameEn')}</th>
-              <th className="p-3">{t('admin.slug')}</th>
-              <th className="p-3">{t('admin.active')}</th>
-              <th className="p-3">{t('admin.actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredSubtypes.map((subtype) => (
-              <tr key={subtype.id} className="border-b">
-                <td className="p-3">
-                  <input
-                    defaultValue={subtype.nameEn}
-                    onBlur={(e) => {
-                      if (e.target.value !== subtype.nameEn) {
-                        updateSubtype({ id: subtype.id, data: { nameEn: e.target.value } });
-                      }
-                    }}
-                    className="w-full rounded border px-2 py-1"
-                  />
-                </td>
-                <td className="p-3 font-mono text-xs">{subtype.slug}</td>
-                <td className="p-3">
-                  <input
-                    type="checkbox"
-                    checked={subtype.isActive}
-                    onChange={(e) =>
-                      updateSubtype({ id: subtype.id, data: { isActive: e.target.checked } })
-                    }
-                  />
-                </td>
-                <td className="p-3">
-                  <button
-                    type="button"
-                    onClick={() => deleteSubtype(subtype.id)}
-                    className="text-red-600 hover:underline"
-                  >
-                    {t('admin.delete')}
-                  </button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-gray-500">
+                <th className="p-3">{t('admin.nameEn')}</th>
+                <th className="p-3">{t('admin.nameZh')}</th>
+                <th className="p-3">{t('admin.slug')}</th>
+                <th className="p-3">{t('admin.active')}</th>
+                <th className="p-3">{t('admin.actions')}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredSubtypes.map((subtype) => {
+                const isEditing = editingSubtypeId === subtype.id;
+                return (
+                  <tr key={subtype.id} className="border-b">
+                    <td className="p-3">
+                      {isEditing ? (
+                        <input
+                          value={subtypeEditForm.nameEn}
+                          onChange={(e) =>
+                            setSubtypeEditForm({ ...subtypeEditForm, nameEn: e.target.value })
+                          }
+                          className="w-full rounded border px-2 py-1"
+                          required
+                        />
+                      ) : (
+                        subtype.nameEn
+                      )}
+                    </td>
+                    <td className="p-3">
+                      {isEditing ? (
+                        <input
+                          value={subtypeEditForm.nameZh}
+                          onChange={(e) =>
+                            setSubtypeEditForm({ ...subtypeEditForm, nameZh: e.target.value })
+                          }
+                          className="w-full rounded border px-2 py-1"
+                          required
+                        />
+                      ) : (
+                        subtype.nameZh || '—'
+                      )}
+                    </td>
+                    <td className="p-3 font-mono text-xs">{subtype.slug}</td>
+                    <td className="p-3">
+                      <input
+                        type="checkbox"
+                        checked={subtype.isActive}
+                        disabled={isEditing}
+                        onChange={(e) =>
+                          updateSubtype({ id: subtype.id, data: { isActive: e.target.checked } })
+                        }
+                      />
+                    </td>
+                    <td className="p-3">
+                      <div className="flex flex-wrap gap-3">
+                        {isEditing ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => saveSubtypeEdit(subtype.id)}
+                              className="text-brand hover:underline"
+                            >
+                              {t('admin.save')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingSubtypeId(null)}
+                              className="text-gray-600 hover:underline"
+                            >
+                              {t('admin.cancel')}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => startEditSubtype(subtype)}
+                              className="text-brand hover:underline"
+                            >
+                              {t('admin.edit')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteSubtype(subtype.id)}
+                              className="text-red-600 hover:underline"
+                            >
+                              {t('admin.delete')}
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   );

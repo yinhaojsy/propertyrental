@@ -140,7 +140,7 @@ router.post(
           cityId,
           slug: slug ?? slugify(nameEn),
           nameEn,
-          nameZh: nameZh ?? nameEn,
+          nameZh: nameZh ?? null,
           isActive,
         })
         .returning();

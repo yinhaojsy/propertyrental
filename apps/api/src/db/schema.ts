@@ -80,6 +80,44 @@ export const floorEnum = pgEnum('floor_type', [
   'penthouse',
 ]);
 
+export const photoFloors = pgTable('photo_floors', {
+  id: serial('id').primaryKey(),
+  slug: text('slug').notNull().unique(),
+  nameEn: text('name_en').notNull(),
+  nameZh: text('name_zh').notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const photoRoomTypes = pgTable('photo_room_types', {
+  id: serial('id').primaryKey(),
+  slug: text('slug').notNull().unique(),
+  nameEn: text('name_en').notNull(),
+  nameZh: text('name_zh').notNull(),
+  labelEn: text('label_en').notNull(),
+  labelZh: text('label_zh').notNull(),
+  autoNumber: boolean('auto_number').default(false).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const photoFloorRoomTypes = pgTable(
+  'photo_floor_room_types',
+  {
+    floorId: integer('floor_id')
+      .notNull()
+      .references(() => photoFloors.id, { onDelete: 'cascade' }),
+    roomTypeId: integer('room_type_id')
+      .notNull()
+      .references(() => photoRoomTypes.id, { onDelete: 'cascade' }),
+  },
+  (t) => [uniqueIndex('photo_floor_room_types_pk').on(t.floorId, t.roomTypeId)],
+);
+
 export const cities = pgTable('cities', {
   id: serial('id').primaryKey(),
   slug: text('slug').notNull().unique(),
@@ -252,9 +290,10 @@ export const listingPhotos = pgTable(
       .references(() => listings.id, { onDelete: 'cascade' }),
     storageKey: text('storage_key').notNull(),
     thumbnailKey: text('thumbnail_key'),
-    floor: floorEnum('floor'),
-    roomType: roomTypeEnum('room_type'),
+    floor: text('floor'),
+    roomType: text('room_type'),
     roomLabel: text('room_label'),
+    roomLabelZh: text('room_label_zh'),
     sortOrder: integer('sort_order').default(0).notNull(),
     isCover: boolean('is_cover').default(false).notNull(),
     uploadMode: uploadModeEnum('upload_mode').default('structured').notNull(),
@@ -313,6 +352,25 @@ export const propertySubtypesRelations = relations(propertySubtypes, ({ one }) =
   propertyType: one(propertyTypes, {
     fields: [propertySubtypes.propertyTypeId],
     references: [propertyTypes.id],
+  }),
+}));
+
+export const photoFloorsRelations = relations(photoFloors, ({ many }) => ({
+  floorRoomTypes: many(photoFloorRoomTypes),
+}));
+
+export const photoRoomTypesRelations = relations(photoRoomTypes, ({ many }) => ({
+  floorRoomTypes: many(photoFloorRoomTypes),
+}));
+
+export const photoFloorRoomTypesRelations = relations(photoFloorRoomTypes, ({ one }) => ({
+  floor: one(photoFloors, {
+    fields: [photoFloorRoomTypes.floorId],
+    references: [photoFloors.id],
+  }),
+  roomType: one(photoRoomTypes, {
+    fields: [photoFloorRoomTypes.roomTypeId],
+    references: [photoRoomTypes.id],
   }),
 }));
 

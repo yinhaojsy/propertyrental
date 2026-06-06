@@ -11,9 +11,10 @@ import { NumberInput } from './NumberInput';
 interface AreaInputProps {
   areaSqft: number | null;
   onAreaSqftChange: (sqft: number | null) => void;
+  disabled?: boolean;
 }
 
-export function AreaInput({ areaSqft, onAreaSqftChange }: AreaInputProps) {
+export function AreaInput({ areaSqft, onAreaSqftChange, disabled }: AreaInputProps) {
   const { t } = useTranslation();
   const [inputUnit, setInputUnit] = useState<AreaUnit>('sqft');
   const [inputValue, setInputValue] = useState<number | null>(null);
@@ -33,11 +34,13 @@ export function AreaInput({ areaSqft, onAreaSqftChange }: AreaInputProps) {
             setInputValue(value);
             onAreaSqftChange(sqftFromAreaInput(value, inputUnit));
           }}
-          className="min-w-0 flex-1 rounded-lg border px-3 py-2"
+          disabled={disabled}
+          className="min-w-0 flex-1 rounded-lg border px-3 py-2 disabled:bg-gray-100"
         />
         <select
           value={inputUnit}
           onChange={(e) => setInputUnit(e.target.value as AreaUnit)}
+          disabled={disabled}
           className="w-36 shrink-0 rounded-lg border px-2 py-2 text-sm"
         >
           {AREA_UNITS.map((unit) => (
