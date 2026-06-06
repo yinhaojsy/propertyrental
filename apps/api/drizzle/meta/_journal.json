@@ -1,0 +1,34 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1780745661887,
+      "tag": "0000_hesitant_caretaker",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780745661888,
+      "tag": "0001_locations_and_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780745661889,
+      "tag": "0002_locations_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780745661890,
+      "tag": "0003_session_activity",
+      "breakpoints": true
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "name": "property-rental",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "minio:start": "bash scripts/start-minio.sh",
+    "dev": "concurrently -n api,worker,web -c blue,magenta,green \"npm run dev -w @property-rental/api\" \"npm run worker -w @property-rental/api\" \"wait-on -t 60000 http://127.0.0.1:3000/api/health && npm run dev -w @property-rental/web\"",
+    "dev:web": "npm run dev -w @property-rental/web",
+    "dev:api": "npm run dev -w @property-rental/api",
+    "build": "npm run build -w @property-rental/shared && npm run build -w @property-rental/api && npm run build -w @property-rental/web",
+    "db:generate": "npm run db:generate -w @property-rental/api",
+    "db:migrate": "npm run db:migrate -w @property-rental/api",
+    "db:seed": "npm run build -w @property-rental/shared && npm run db:seed -w @property-rental/api",
+    "db:setup": "bash scripts/setup-local.sh",
+    "db:users": "bash scripts/db-users.sh",
+    "test:smoke": "npm run test:smoke -w @property-rental/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "wait-on": "^8.0.5"
+  }
+}
