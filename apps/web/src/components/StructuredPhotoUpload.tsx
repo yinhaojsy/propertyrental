@@ -20,7 +20,6 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   deriveBedsBathsFromPhotoMetadata,
   formatRoomSlotLabel,
-  roomTypeRequiresFloor,
   suggestRoomLabels,
   usesFloorForSubtype,
   type PhotoMetadata,
@@ -225,6 +224,7 @@ export function StructuredPhotoUpload({
 
   const [uploadSlots, setUploadSlots] = useState<UploadSlot[]>([]);
   const [uploadingSlotId, setUploadingSlotId] = useState<string | null>(null);
+  const [dragOverSlotId, setDragOverSlotId] = useState<string | null>(null);
   const [photoActionId, setPhotoActionId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const pendingEmptySlotIds = useRef<Set<string>>(new Set());
@@ -259,8 +259,7 @@ export function StructuredPhotoUpload({
   const createDefaultSlot = useCallback(
     (existingSlots: UploadSlot[] = []): UploadSlot => {
       const roomType = defaultRoomType;
-      const floor =
-        showFloor && roomTypeRequiresFloor(roomType) ? defaultFloor : null;
+      const floor = showFloor ? defaultFloor : null;
       const labels = computeSlotLabels(roomType, floor, null, existingSlots);
       const id = newSlotId();
       pendingEmptySlotIds.current.add(id);
@@ -329,13 +328,7 @@ export function StructuredPhotoUpload({
 
         let roomType = patch.roomType ?? slot.roomType;
         let floor = patch.floor !== undefined ? patch.floor : slot.floor;
-        if (patch.roomType && !roomTypeRequiresFloor(patch.roomType)) {
-          floor = null;
-        }
-        if (patch.floor === null || floor === '') {
-          floor = null;
-        }
-        if (showFloor && roomTypeRequiresFloor(roomType) && !floor) {
+        if (showFloor && !floor) {
           floor = defaultFloor;
         }
 
@@ -349,9 +342,7 @@ export function StructuredPhotoUpload({
     setUploadSlots((prev) => {
       const ref = prev.find((s) => s.id === afterId) ?? prev[prev.length - 1];
       const roomType = ref?.roomType ?? defaultRoomType;
-      const floor =
-        ref?.floor ??
-        (showFloor && roomTypeRequiresFloor(roomType) ? defaultFloor : null);
+      const floor = ref?.floor ?? (showFloor ? defaultFloor : null);
       const labels = computeSlotLabels(roomType, floor, null, prev);
       const id = newSlotId();
       pendingEmptySlotIds.current.add(id);
@@ -431,7 +422,7 @@ export function StructuredPhotoUpload({
           listingId: id,
           data: {
             storageKey,
-            floor: slot.floor ?? undefined,
+            floor: showFloor ? (slot.floor ?? defaultFloor ?? undefined) : undefined,
             roomType: slot.roomType,
             roomLabel: slot.labelEn,
             roomLabelZh: slot.labelZh,
@@ -533,9 +524,10 @@ export function StructuredPhotoUpload({
       {uploadSlots.map((slot) => {
         const slotPhotoList = slotPhotos(sortedPhotos, slot);
         const hasPhotos = slotPhotoList.length > 0;
-        const roomOptions = availableRoomTypesForFloor(slot.floor);
-        const slotFloorRequired = showFloor && roomTypeRequiresFloor(slot.roomType);
+        const roomOptions = availableRoomTypesForFloor(slot.floor ?? defaultFloor);
         const isUploading = uploadingSlotId === slot.id;
+        const isDragOver = dragOverSlotId === slot.id;
+        const slotFloor = slot.floor ?? defaultFloor ?? '';
 
         return (
           <div
@@ -578,16 +570,11 @@ export function StructuredPhotoUpload({
                       {t('admin.floor')}
                     </span>
                     <select
-                      value={slot.floor ?? ''}
-                      onChange={(e) =>
-                        updateSlot(slot.id, {
-                          floor: e.target.value === '' ? null : e.target.value,
-                        })
-                      }
-                      disabled={hasPhotos || !slotFloorRequired}
+                      value={slotFloor}
+                      onChange={(e) => updateSlot(slot.id, { floor: e.target.value })}
+                      disabled={hasPhotos}
                       className="w-full rounded-lg border bg-white px-3 py-2 disabled:bg-gray-100"
                     >
-                      <option value="">{t('admin.floorNone')}</option>
                       {floors.map((f) => (
                         <option key={f.slug} value={f.slug}>
                           {labelFor(f.nameEn, f.nameZh, i18n.language, f.slug)}
@@ -606,7 +593,7 @@ export function StructuredPhotoUpload({
                     disabled={hasPhotos}
                     className="w-full rounded-lg border bg-white px-3 py-2 disabled:bg-gray-100"
                   >
-                    {(slotFloorRequired ? roomOptions : roomTypes).map((r) => (
+                    {roomOptions.map((r) => (
                       <option key={r.slug} value={r.slug}>
                         {labelFor(r.nameEn, r.nameZh, i18n.language, r.slug)}
                       </option>
@@ -617,20 +604,51 @@ export function StructuredPhotoUpload({
             )}
 
             {!readOnly && (
-              <label className="mb-3 inline-flex cursor-pointer items-center rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
-                {isUploading ? t('common.loading') : t('admin.uploadToRoom')}
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  disabled={busy}
-                  onChange={(e) => {
-                    void uploadToSlot(slot, e.target.files);
-                    e.target.value = '';
-                  }}
-                  className="sr-only"
-                />
-              </label>
+              <div
+                className={`mb-3 rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
+                  isUploading
+                    ? 'cursor-not-allowed border-gray-200 bg-white opacity-60'
+                    : isDragOver
+                      ? 'border-brand bg-brand/5'
+                      : 'border-gray-300 bg-white hover:border-brand/50'
+                }`}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  if (!busy) setDragOverSlotId(slot.id);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (!busy) setDragOverSlotId(slot.id);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setDragOverSlotId((current) => (current === slot.id ? null : current));
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverSlotId(null);
+                  if (!busy) void uploadToSlot(slot, e.dataTransfer.files);
+                }}
+              >
+                <p className="text-sm font-medium text-gray-700">{t('admin.uploadToRoom')}</p>
+                <p className="mt-1 text-sm text-gray-500">{t('admin.dropPhotosHint')}</p>
+                <label className="mt-3 inline-flex cursor-pointer items-center rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50">
+                  {isUploading ? t('common.loading') : t('admin.browsePhotos')}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    disabled={busy}
+                    onChange={(e) => {
+                      void uploadToSlot(slot, e.target.files);
+                      e.target.value = '';
+                    }}
+                    className="sr-only"
+                  />
+                </label>
+              </div>
             )}
 
             {slotPhotoList.length > 0 && (
