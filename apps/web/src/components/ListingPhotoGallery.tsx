@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatRoomSlotLabel } from '@property-rental/shared';
-import { useGetPhotoConfigQuery } from '../store/api';
+import { useGetPhotoConfigQuery, type ListingBadge } from '../store/api';
+import { ListingBadgesOverlay } from './ListingBadgesOverlay';
 
 interface GalleryPhoto {
   id: number;
@@ -17,6 +18,7 @@ interface ListingPhotoGalleryProps {
   photos: GalleryPhoto[];
   fallbackUrl?: string | null;
   title: string;
+  badges?: ListingBadge[];
 }
 
 function photoSrc(photo: GalleryPhoto, fullSize = false): string {
@@ -24,7 +26,7 @@ function photoSrc(photo: GalleryPhoto, fullSize = false): string {
   return photo.url ?? photo.originalUrl ?? '';
 }
 
-export function ListingPhotoGallery({ photos, fallbackUrl, title }: ListingPhotoGalleryProps) {
+export function ListingPhotoGallery({ photos, fallbackUrl, title, badges }: ListingPhotoGalleryProps) {
   const { t, i18n } = useTranslation();
   const { data: photoConfig } = useGetPhotoConfigQuery();
   const formatOptions = useMemo(
@@ -133,6 +135,7 @@ export function ListingPhotoGallery({ photos, fallbackUrl, title }: ListingPhoto
     <>
       <div className="overflow-hidden rounded-xl bg-gray-900">
         <div className="relative aspect-[16/10] bg-black">
+          <ListingBadgesOverlay badges={badges} />
           <button
             type="button"
             onClick={() => setLightboxOpen(true)}

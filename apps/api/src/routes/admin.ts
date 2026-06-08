@@ -38,6 +38,7 @@ import {
   deriveBedsBathsFromPhotos,
   syncListingBedsBathsFromPhotos,
   getDashboardStats,
+  loadBadgesForListings,
 } from '../services/listings.js';
 import { getPresignedUploadUrl } from '../lib/storage.js';
 import { enqueueImageProcessing } from '../lib/queue.js';
@@ -94,6 +95,8 @@ router.get('/listings', requirePermission('listings:read'), async (_req, res, ne
       }
     }
 
+    const badgeMap = await loadBadgesForListings(listingIds);
+
     res.json(
       rows.map(({ listing, sector, city }) => ({
         ...listing,
@@ -102,6 +105,7 @@ router.get('/listings', requirePermission('listings:read'), async (_req, res, ne
         areaValue: listing.areaValue ? Number(listing.areaValue) : null,
         sector,
         city,
+        badges: badgeMap.get(listing.id) ?? [],
       })),
     );
   } catch (err) {

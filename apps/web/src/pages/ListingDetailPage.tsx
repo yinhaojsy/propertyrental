@@ -116,6 +116,7 @@ export function ListingDetailPage() {
             photos={listing.photos ?? []}
             fallbackUrl={listing.coverPhotoUrl}
             title={title}
+            badges={listing.badges}
           />
 
           {(bedsLabel || bathsLabel || areaLabel) && (

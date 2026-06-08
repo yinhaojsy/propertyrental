@@ -54,6 +54,10 @@ export function SearchPage() {
     skip: !isResultsView,
   });
 
+  const { data: previewData, isLoading: previewLoading } = useSearchListingsQuery(queryParams, {
+    skip: isResultsView,
+  });
+
   const { data: cities = [] } = useGetCitiesQuery();
 
   const applySearch = () => {
@@ -91,6 +95,27 @@ export function SearchPage() {
             setSearchParams(params);
           }}
         />
+
+        {previewLoading && (
+          <p className="text-sm text-gray-500">{t('common.loading')}</p>
+        )}
+
+        {!previewLoading && previewData && previewData.data.length > 0 && (
+          <section>
+            <h2 className="mb-4 text-xl font-semibold">{t('search.availableListings')}</h2>
+            <div className="grid gap-4">
+              {previewData.data.map((listing) => (
+                <ListingCardItem key={listing.id} listing={listing} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {!previewLoading && previewData?.data.length === 0 && (
+          <p className="rounded-xl bg-white p-8 text-center text-gray-500">
+            {t('search.noResults')}
+          </p>
+        )}
       </div>
     );
   }

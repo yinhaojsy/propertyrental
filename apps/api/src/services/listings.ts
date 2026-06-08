@@ -13,14 +13,73 @@ import {
 import { convertToSqFt, parseBedFilter, parseBathFilter, deriveBedsBathsFromPhotoMetadata } from '@property-rental/shared';
 import type { SearchListingsInput, SearchSortOption } from '@property-rental/shared';
 import { db } from '../db/index.js';
-import { cities, listings, listingPhotos, sectors } from '../db/schema.js';
+import {
+  cities,
+  listings,
+  listingPhotos,
+  listingBadges,
+  listingBadgeAssignments,
+  sectors,
+} from '../db/schema.js';
 import { publicPhotoUrl, slugifyListing } from '../lib/utils.js';
+
+export interface ListingBadgeDto {
+  id: number;
+  slug: string;
+  labelEn: string;
+  labelZh: string | null;
+  backgroundColor: string;
+  textColor: string;
+  sortOrder: number;
+}
+
+function formatBadge(badge: typeof listingBadges.$inferSelect): ListingBadgeDto {
+  return {
+    id: badge.id,
+    slug: badge.slug,
+    labelEn: badge.labelEn,
+    labelZh: badge.labelZh,
+    backgroundColor: badge.backgroundColor,
+    textColor: badge.textColor,
+    sortOrder: badge.sortOrder,
+  };
+}
+
+export async function loadBadgesForListings(
+  listingIds: number[],
+): Promise<Map<number, ListingBadgeDto[]>> {
+  const map = new Map<number, ListingBadgeDto[]>();
+  if (listingIds.length === 0) return map;
+
+  const rows = await db
+    .select({
+      listingId: listingBadgeAssignments.listingId,
+      badge: listingBadges,
+    })
+    .from(listingBadgeAssignments)
+    .innerJoin(listingBadges, eq(listingBadgeAssignments.badgeId, listingBadges.id))
+    .where(
+      and(
+        inArray(listingBadgeAssignments.listingId, listingIds),
+        eq(listingBadges.isActive, true),
+      ),
+    )
+    .orderBy(asc(listingBadges.sortOrder), asc(listingBadges.labelEn));
+
+  for (const row of rows) {
+    const list = map.get(row.listingId) ?? [];
+    list.push(formatBadge(row.badge));
+    map.set(row.listingId, list);
+  }
+  return map;
+}
 
 function formatListingRow(
   row: typeof listings.$inferSelect,
   sector: typeof sectors.$inferSelect,
   city: typeof cities.$inferSelect,
   coverUrl: string | null,
+  badges: ListingBadgeDto[] = [],
 ) {
   return {
     id: row.id,
@@ -52,6 +111,7 @@ function formatListingRow(
     coverPhotoUrl: coverUrl,
     publishedAt: row.publishedAt,
     createdAt: row.createdAt,
+    badges,
   };
 }
 
@@ -181,6 +241,8 @@ export async function searchListings(query: SearchListingsInput) {
     );
   }
 
+  const badgeMap = await loadBadgesForListings(listingIds);
+
   return {
     data: rows.map(({ listing, sector, city }) =>
       formatListingRow(
@@ -188,6 +250,7 @@ export async function searchListings(query: SearchListingsInput) {
         sector,
         city,
         coverMap.get(listing.id) ?? null,
+        badgeMap.get(listing.id) ?? [],
       ),
     ),
     pagination: {
@@ -224,6 +287,9 @@ export async function getListingBySlugOrId(slugOrId: string) {
     .where(eq(listingPhotos.listingId, row.listing.id))
     .orderBy(desc(listingPhotos.isCover), asc(listingPhotos.sortOrder));
 
+  const badgeMap = await loadBadgesForListings([row.listing.id]);
+  const badges = badgeMap.get(row.listing.id) ?? [];
+
   return {
     ...formatListingRow(
       row.listing,
@@ -234,6 +300,7 @@ export async function getListingBySlugOrId(slugOrId: string) {
           photos[0]?.thumbnailKey ??
           photos[0]?.storageKey,
       ),
+      badges,
     ),
     photos: photos.map((p) => ({
       id: p.id,

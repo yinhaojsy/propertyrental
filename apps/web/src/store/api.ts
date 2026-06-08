@@ -92,6 +92,7 @@ export interface ListingCard {
   coverPhotoUrl: string | null;
   publishedAt: string | null;
   createdAt: string;
+  badges?: ListingBadge[];
   contactPhone?: string | null;
   contactEmail?: string | null;
   descriptionEn?: string | null;
@@ -107,6 +108,17 @@ export interface ListingCard {
     sortOrder: number;
     isCover: boolean;
   }>;
+}
+
+export interface ListingBadge {
+  id: number;
+  slug: string;
+  labelEn: string;
+  labelZh: string | null;
+  backgroundColor: string;
+  textColor: string;
+  sortOrder: number;
+  isActive?: boolean;
 }
 
 export interface Sector {
@@ -195,7 +207,7 @@ export interface User {
 export const api = createApi({
   reducerPath: 'api',
   baseQuery,
-  tagTypes: ['Listings', 'Listing', 'Offers', 'Users', 'AdminListings', 'Cities', 'Sectors', 'PropertyTypes', 'PhotoConfig', 'Me'],
+  tagTypes: ['Listings', 'Listing', 'Offers', 'Users', 'AdminListings', 'Cities', 'Sectors', 'PropertyTypes', 'PhotoConfig', 'Badges', 'Me'],
   endpoints: (builder) => ({
     getCsrf: builder.query<{ csrfToken: string }, void>({
       query: () => '/api/auth/csrf',
@@ -540,6 +552,51 @@ export const api = createApi({
       }),
       invalidatesTags: ['PhotoConfig'],
     }),
+    getAdminBadges: builder.query<ListingBadge[], void>({
+      query: () => '/api/admin/badges',
+      providesTags: ['Badges'],
+    }),
+    createListingBadge: builder.mutation<
+      ListingBadge,
+      {
+        labelEn: string;
+        labelZh?: string;
+        slug?: string;
+        backgroundColor?: string;
+        textColor?: string;
+        isActive?: boolean;
+        sortOrder?: number;
+      }
+    >({
+      query: (body) => ({ url: '/api/admin/badges', method: 'POST', body }),
+      invalidatesTags: ['Badges'],
+    }),
+    updateListingBadge: builder.mutation<
+      ListingBadge,
+      { id: number; data: Partial<Omit<ListingBadge, 'id'>> }
+    >({
+      query: ({ id, data }) => ({
+        url: `/api/admin/badges/${id}`,
+        method: 'PATCH',
+        body: data,
+      }),
+      invalidatesTags: ['Badges', 'AdminListings', 'Listings'],
+    }),
+    deleteListingBadge: builder.mutation<{ ok: boolean }, number>({
+      query: (id) => ({ url: `/api/admin/badges/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Badges', 'AdminListings', 'Listings'],
+    }),
+    setListingBadges: builder.mutation<
+      { badges: ListingBadge[] },
+      { listingId: number; badgeIds: number[] }
+    >({
+      query: ({ listingId, badgeIds }) => ({
+        url: `/api/admin/listings/${listingId}/badges`,
+        method: 'PUT',
+        body: { badgeIds },
+      }),
+      invalidatesTags: ['AdminListings', 'Listings', 'Listing'],
+    }),
   }),
 });
 
@@ -599,4 +656,9 @@ export const {
   useDeletePhotoRoomTypeMutation,
   useSetPhotoFloorRoomTypesMutation,
   useSetPhotoSubtypeFloorsMutation,
+  useGetAdminBadgesQuery,
+  useCreateListingBadgeMutation,
+  useUpdateListingBadgeMutation,
+  useDeleteListingBadgeMutation,
+  useSetListingBadgesMutation,
 } = api;

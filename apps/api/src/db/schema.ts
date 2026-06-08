@@ -314,6 +314,35 @@ export const listingPhotos = pgTable(
   (t) => [index('listing_photos_listing_idx').on(t.listingId)],
 );
 
+export const listingBadges = pgTable('listing_badges', {
+  id: serial('id').primaryKey(),
+  slug: text('slug').notNull().unique(),
+  labelEn: text('label_en').notNull(),
+  labelZh: text('label_zh'),
+  backgroundColor: text('background_color').default('#dc2626').notNull(),
+  textColor: text('text_color').default('#ffffff').notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+export const listingBadgeAssignments = pgTable(
+  'listing_badge_assignments',
+  {
+    listingId: integer('listing_id')
+      .notNull()
+      .references(() => listings.id, { onDelete: 'cascade' }),
+    badgeId: integer('badge_id')
+      .notNull()
+      .references(() => listingBadges.id, { onDelete: 'cascade' }),
+  },
+  (t) => [
+    uniqueIndex('listing_badge_assignments_pk').on(t.listingId, t.badgeId),
+    index('listing_badge_assignments_listing_idx').on(t.listingId),
+  ],
+);
+
 export const offers = pgTable(
   'offers',
   {
@@ -398,6 +427,7 @@ export const listingsRelations = relations(listings, ({ one, many }) => ({
   sector: one(sectors, { fields: [listings.sectorId], references: [sectors.id] }),
   photos: many(listingPhotos),
   offers: many(offers),
+  badgeAssignments: many(listingBadgeAssignments),
   createdBy: one(users, { fields: [listings.createdById], references: [users.id] }),
 }));
 
@@ -405,6 +435,21 @@ export const listingPhotosRelations = relations(listingPhotos, ({ one }) => ({
   listing: one(listings, {
     fields: [listingPhotos.listingId],
     references: [listings.id],
+  }),
+}));
+
+export const listingBadgesRelations = relations(listingBadges, ({ many }) => ({
+  assignments: many(listingBadgeAssignments),
+}));
+
+export const listingBadgeAssignmentsRelations = relations(listingBadgeAssignments, ({ one }) => ({
+  listing: one(listings, {
+    fields: [listingBadgeAssignments.listingId],
+    references: [listings.id],
+  }),
+  badge: one(listingBadges, {
+    fields: [listingBadgeAssignments.badgeId],
+    references: [listingBadges.id],
   }),
 }));
 

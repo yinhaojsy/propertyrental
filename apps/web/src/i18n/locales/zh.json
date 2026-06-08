@@ -65,7 +65,8 @@
     "adsInCity": "{{city}} · {{count}} 个房源",
     "residentialForRent": "住宅出租",
     "commercialForRent": "商业出租",
-    "industrialForRent": "工业出租"
+    "industrialForRent": "工业出租",
+    "availableListings": "可租房源"
   },
   "propertyTypes": {
     "house": "独立屋",
@@ -262,7 +263,16 @@
     "floorRoomTypesHelp": "选择在照片上传时选中某楼层后显示的房间类型。",
     "subtypeFloors": "各子类型的可用楼层",
     "subtypeFloorsHelp": "为每种物业子类型（如独立屋）选择上传照片时可用的楼层。全部不选则该子类型不显示楼层。",
-    "photoConfigMissingSeed": "未找到楼层数据。请重启 API 以运行迁移和种子数据，或在 api 包中运行 npm run db:migrate 和 npm run db:seed。"
+    "photoConfigMissingSeed": "未找到楼层数据。请重启 API 以运行迁移和种子数据，或在 api 包中运行 npm run db:migrate 和 npm run db:seed。",
+    "badgesNav": "标签",
+    "badgesTitle": "房源标签",
+    "badgesHelp": "创建如“热门”或“精选”等标签，然后在房源列表中分配给相应广告。",
+    "addBadge": "添加标签",
+    "badges": "标签",
+    "noBadgesYet": "请先创建标签",
+    "backgroundColor": "背景色",
+    "textColor": "文字色",
+    "preview": "预览"
   },
   "common": {
     "loading": "加载中...",

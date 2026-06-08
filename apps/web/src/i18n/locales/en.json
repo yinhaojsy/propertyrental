@@ -65,7 +65,8 @@
     "adsInCity": "{{count}} Ads in {{city}}",
     "residentialForRent": "Homes for Rent",
     "commercialForRent": "Commercial for Rent",
-    "industrialForRent": "Industrial for Rent"
+    "industrialForRent": "Industrial for Rent",
+    "availableListings": "Available listings"
   },
   "propertyTypes": {
     "house": "House",
@@ -262,7 +263,16 @@
     "floorRoomTypesHelp": "Choose which room types appear when a floor is selected during photo upload.",
     "subtypeFloors": "Floors per subtype",
     "subtypeFloorsHelp": "Choose which floors appear when uploading photos for a property subtype (e.g. House). Leave all unchecked to hide floors for that subtype.",
-    "photoConfigMissingSeed": "No floors found. Restart the API so migrations and seed can restore defaults, or run npm run db:migrate and npm run db:seed in the api package."
+    "photoConfigMissingSeed": "No floors found. Restart the API so migrations and seed can restore defaults, or run npm run db:migrate and npm run db:seed in the api package.",
+    "badgesNav": "Badges",
+    "badgesTitle": "Listing Badges",
+    "badgesHelp": "Create badges like Popular or Featured, then assign them to listings from the Listings table.",
+    "addBadge": "Add Badge",
+    "badges": "Badges",
+    "noBadgesYet": "Create badges first",
+    "backgroundColor": "Background",
+    "textColor": "Text",
+    "preview": "Preview"
   },
   "common": {
     "loading": "Loading...",

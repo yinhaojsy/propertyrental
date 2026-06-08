@@ -15,6 +15,7 @@ import islamabadSectors from './seeds/islamabad-sectors.json' with { type: 'json
 import rawalpindiSectors from './seeds/rawalpindi-sectors.json' with { type: 'json' };
 import { seedPhotoConfig } from './seed-photo-config.js';
 import { seedPropertyTypes } from './seed-property-types.js';
+import { seedListingBadges } from './seed-listing-badges.js';
 
 function slugify(name: string): string {
   return name
@@ -121,6 +122,7 @@ export async function seedDatabase(): Promise<void> {
   }
 
   await seedPropertyTypes();
+  await seedListingBadges();
   await seedPhotoConfig();
 
   console.log('Seed complete.');

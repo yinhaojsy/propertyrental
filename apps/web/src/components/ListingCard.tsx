@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { ListingCard } from '../store/api';
 import { OfferModal } from './OfferModal';
+import { ListingBadgesOverlay } from './ListingBadgesOverlay';
 
 interface ListingCardItemProps {
   listing: ListingCard;
@@ -41,6 +42,7 @@ export function ListingCardItem({ listing, showActions = true }: ListingCardItem
       <article className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md">
         <Link to={`/listings/${listing.slug}`} className="flex flex-col sm:flex-row">
           <div className="relative h-48 w-full shrink-0 bg-gray-200 sm:h-auto sm:w-56 md:w-64">
+            <ListingBadgesOverlay badges={listing.badges} />
             {listing.coverPhotoUrl ? (
               <img
                 src={listing.coverPhotoUrl}

@@ -43,6 +43,13 @@
       "when": 1780745661892,
       "tag": "0005_photo_subtype_floors",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1780745661893,
+      "tag": "0006_listing_badges",
+      "breakpoints": true
     }
   ]
 }
