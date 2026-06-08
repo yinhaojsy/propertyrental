@@ -27,6 +27,25 @@ export async function readLocalFile(storageKey: string): Promise<Buffer> {
   return fs.readFile(localFilePath(storageKey));
 }
 
+export async function deleteLocalFile(storageKey: string): Promise<void> {
+  try {
+    await fs.unlink(localFilePath(storageKey));
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT') throw err;
+  }
+}
+
+export async function deleteLocalListingFolder(listingId: number): Promise<void> {
+  const dir = path.join(uploadsRoot, 'listings', String(listingId));
+  try {
+    await fs.rm(dir, { recursive: true, force: true });
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT') throw err;
+  }
+}
+
 export function localPublicUrl(storageKey: string): string {
   return `${config.apiPublicUrl}/uploads/${storageKey}`;
 }

@@ -50,6 +50,20 @@
       "when": 1780745661893,
       "tag": "0006_listing_badges",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1780745661894,
+      "tag": "0007_photo_file_size",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1780745661895,
+      "tag": "0008_app_settings",
+      "breakpoints": true
     }
   ]
 }

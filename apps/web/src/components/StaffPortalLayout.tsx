@@ -46,6 +46,7 @@ export function StaffPortalLayout() {
           { to: '/staff/property-types', label: t('admin.propertyTypesNav'), end: false },
           { to: '/staff/photo-config', label: t('admin.photoConfigNav'), end: false },
           { to: '/staff/badges', label: t('admin.badgesNav'), end: false },
+          { to: '/staff/settings', label: t('admin.settingsNav'), end: false },
         ]
       : []),
     ...(canManageUsers ? [{ to: '/staff/users', label: t('admin.users'), end: false }] : []),

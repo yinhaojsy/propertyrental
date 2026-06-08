@@ -25,10 +25,13 @@ import {
   useDeleteAllListingPhotosMutation,
 } from '../store/api';
 import { StructuredPhotoUpload } from './StructuredPhotoUpload';
+import { formatFileSize } from '../lib/format';
+import { AdminPhotoLightbox, type AdminPhotoPreview } from './AdminPhotoLightbox';
 
 export interface PhotoItem {
   id: number;
   url: string | null;
+  originalUrl?: string | null;
   storageKey?: string;
   floor?: string | null;
   roomType?: string | null;
@@ -37,6 +40,7 @@ export interface PhotoItem {
   sortOrder: number;
   isCover: boolean;
   uploadMode?: 'structured' | 'bulk' | null;
+  fileSizeBytes?: number | null;
 }
 
 interface ListingPhotoUploadProps {
@@ -56,12 +60,14 @@ function SortablePhoto({
   photo,
   onDelete,
   onSetCover,
+  onPreview,
   busy,
   readOnly,
 }: {
   photo: PhotoItem;
   onDelete: () => void;
   onSetCover: () => void;
+  onPreview: () => void;
   busy: boolean;
   readOnly?: boolean;
 }) {
@@ -80,7 +86,16 @@ function SortablePhoto({
         isDragging ? 'z-10 opacity-80 shadow-lg' : ''
       }`}
     >
-      {photo.url && <img src={photo.url} alt="" className="aspect-square w-full object-cover" draggable={false} />}
+      {photo.url && (
+        <button
+          type="button"
+          onClick={onPreview}
+          className="block w-full cursor-zoom-in"
+          aria-label={t('admin.viewPhoto')}
+        >
+          <img src={photo.url} alt="" className="aspect-square w-full object-cover" draggable={false} />
+        </button>
+      )}
       {!readOnly && (
         <>
           <button
@@ -115,6 +130,11 @@ function SortablePhoto({
           >
             ⋮⋮
           </button>
+          {photo.fileSizeBytes != null && photo.fileSizeBytes > 0 && (
+            <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+              {formatFileSize(photo.fileSizeBytes)}
+            </span>
+          )}
         </>
       )}
       {readOnly && photo.isCover && (
@@ -171,6 +191,7 @@ export function ListingPhotoUpload({
   const [clearingAll, setClearingAll] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewPhoto, setPreviewPhoto] = useState<AdminPhotoPreview | null>(null);
 
   const photoBusy = uploading || clearingAll || photoActionId != null;
 
@@ -226,6 +247,7 @@ export function ListingPhotoUpload({
             sortOrder,
             uploadMode: 'bulk',
             isCover: sortedPhotos.length === 0 && sortOrder === 0,
+            fileSizeBytes: file.size,
           },
         }).unwrap()) as { derived?: { beds: number; baths: number } };
 
@@ -482,10 +504,17 @@ export function ListingPhotoUpload({
                   {groupPhotos.map((photo) => (
                     <div key={photo.id} className="relative overflow-hidden rounded-lg border bg-white">
                       {photo.url && (
-                        <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setPreviewPhoto(photo)}
+                          className="block w-full cursor-zoom-in"
+                          aria-label={t('admin.viewPhoto')}
+                        >
+                          <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
+                        </button>
                       )}
                       {photo.isCover && (
-                        <span className="absolute left-1 top-1 rounded bg-brand px-1 text-xs text-white">
+                        <span className="pointer-events-none absolute left-1 top-1 rounded bg-brand px-1 text-xs text-white">
                           {t('admin.coverPhoto')}
                         </span>
                       )}
@@ -509,6 +538,7 @@ export function ListingPhotoUpload({
                         photo={photo}
                         busy={photoBusy}
                         readOnly={readOnly}
+                        onPreview={() => setPreviewPhoto(photo)}
                         onDelete={() => void handleDeletePhoto(photo.id)}
                         onSetCover={() => void handleSetCover(photo.id)}
                       />
@@ -521,6 +551,8 @@ export function ListingPhotoUpload({
           ))}
         </div>
       )}
+
+      <AdminPhotoLightbox photo={previewPhoto} onClose={() => setPreviewPhoto(null)} />
     </section>
   );
 }

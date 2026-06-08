@@ -16,6 +16,7 @@ import rawalpindiSectors from './seeds/rawalpindi-sectors.json' with { type: 'js
 import { seedPhotoConfig } from './seed-photo-config.js';
 import { seedPropertyTypes } from './seed-property-types.js';
 import { seedListingBadges } from './seed-listing-badges.js';
+import { seedAppSettings } from './seed-app-settings.js';
 
 function slugify(name: string): string {
   return name
@@ -124,6 +125,7 @@ export async function seedDatabase(): Promise<void> {
   await seedPropertyTypes();
   await seedListingBadges();
   await seedPhotoConfig();
+  await seedAppSettings();
 
   console.log('Seed complete.');
 }

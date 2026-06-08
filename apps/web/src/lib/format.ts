@@ -22,3 +22,12 @@ export function whatsAppUrl(phone: string, message: string): string {
 export function slugLabel(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
+
+const ONE_MB = 1024 * 1024;
+
+export function formatFileSize(bytes: number): string {
+  if (bytes >= ONE_MB) {
+    return `${(bytes / ONE_MB).toFixed(2)} MB`;
+  }
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}

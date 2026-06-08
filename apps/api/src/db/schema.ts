@@ -9,6 +9,7 @@ import {
   pgEnum,
   uniqueIndex,
   index,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -309,6 +310,7 @@ export const listingPhotos = pgTable(
     isCover: boolean('is_cover').default(false).notNull(),
     uploadMode: uploadModeEnum('upload_mode').default('structured').notNull(),
     processingStatus: text('processing_status').default('pending').notNull(),
+    fileSizeBytes: integer('file_size_bytes'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (t) => [index('listing_photos_listing_idx').on(t.listingId)],
@@ -342,6 +344,12 @@ export const listingBadgeAssignments = pgTable(
     index('listing_badge_assignments_listing_idx').on(t.listingId),
   ],
 );
+
+export const appSettings = pgTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
 
 export const offers = pgTable(
   'offers',

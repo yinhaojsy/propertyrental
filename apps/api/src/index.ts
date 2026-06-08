@@ -15,6 +15,7 @@ import adminRoutes from './routes/admin.js';
 import adminLocationsRoutes from './routes/admin-locations.js';
 import adminPhotoConfigRoutes from './routes/admin-photo-config.js';
 import adminBadgesRoutes from './routes/admin-badges.js';
+import adminSettingsRoutes from './routes/admin-settings.js';
 import localStorageRoutes from './routes/local-storage.js';
 import { ensureBucket, storageMode } from './lib/storage.js';
 import { uploadsRoot } from './lib/local-storage.js';
@@ -52,6 +53,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/admin', adminLocationsRoutes);
 app.use('/api/admin', adminPhotoConfigRoutes);
 app.use('/api/admin', adminBadgesRoutes);
+app.use('/api/admin', adminSettingsRoutes);
 app.use('/api/local-storage', localStorageRoutes);
 app.use('/uploads', express.static(uploadsRoot));
 

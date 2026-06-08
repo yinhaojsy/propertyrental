@@ -4,6 +4,7 @@ import {
   useGetAdminListingsQuery,
   useGetAdminBadgesQuery,
   useSetListingBadgesMutation,
+  useDeleteListingMutation,
   type ListingBadge,
 } from '../../store/api';
 
@@ -21,8 +22,14 @@ export function AdminListingsPage() {
   const { data: listings, isLoading } = useGetAdminListingsQuery();
   const { data: allBadges = [] } = useGetAdminBadgesQuery();
   const [setListingBadges] = useSetListingBadgesMutation();
+  const [deleteListing] = useDeleteListingMutation();
 
   const activeBadges = allBadges.filter((b) => b.isActive !== false);
+
+  const handleDeleteListing = async (listing: AdminListingRow) => {
+    if (!window.confirm(t('admin.confirmDeleteListing', { title: listing.titleEn }))) return;
+    await deleteListing(listing.id).unwrap();
+  };
 
   const toggleBadge = async (listingId: number, badgeId: number, currentIds: number[]) => {
     const next = new Set(currentIds);
@@ -101,9 +108,18 @@ export function AdminListingsPage() {
                     )}
                   </td>
                   <td className="p-3">
-                    <Link to={`/staff/listings/${listing.id}/edit`} className="text-brand">
-                      {t('admin.edit')}
-                    </Link>
+                    <div className="flex flex-wrap gap-3">
+                      <Link to={`/staff/listings/${listing.id}/edit`} className="text-brand">
+                        {t('admin.edit')}
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => void handleDeleteListing(listing)}
+                        className="text-red-600 hover:underline"
+                      >
+                        {t('admin.delete')}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );

@@ -5,7 +5,7 @@ import {
   type FetchArgs,
   type FetchBaseQueryError,
 } from '@reduxjs/toolkit/query/react';
-import type { SearchListingsInput } from '@property-rental/shared';
+import type { PhotoCompressionSettings, SearchListingsInput } from '@property-rental/shared';
 import { getCsrfToken, initCsrf, setCsrfToken } from '../lib/api';
 import { clearSession, resetSessionNotice, type AuthPortal } from './authSlice';
 
@@ -207,7 +207,7 @@ export interface User {
 export const api = createApi({
   reducerPath: 'api',
   baseQuery,
-  tagTypes: ['Listings', 'Listing', 'Offers', 'Users', 'AdminListings', 'Cities', 'Sectors', 'PropertyTypes', 'PhotoConfig', 'Badges', 'Me'],
+  tagTypes: ['Listings', 'Listing', 'Offers', 'Users', 'AdminListings', 'Cities', 'Sectors', 'PropertyTypes', 'PhotoConfig', 'Badges', 'Settings', 'Me'],
   endpoints: (builder) => ({
     getCsrf: builder.query<{ csrfToken: string }, void>({
       query: () => '/api/auth/csrf',
@@ -326,6 +326,10 @@ export const api = createApi({
       query: ({ id, data }) => ({ url: `/api/admin/listings/${id}`, method: 'PATCH', body: data }),
       invalidatesTags: ['AdminListings', 'Listings'],
     }),
+    deleteListing: builder.mutation<{ ok: boolean }, number>({
+      query: (id) => ({ url: `/api/admin/listings/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['AdminListings', 'Listings', 'Listing'],
+    }),
     updateListingStatus: builder.mutation<unknown, { id: number; status: string }>({
       query: ({ id, status }) => ({
         url: `/api/admin/listings/${id}/status`,
@@ -360,6 +364,25 @@ export const api = createApi({
     >({
       query: ({ listingId, photos }) => ({
         url: `/api/admin/listings/${listingId}/photos/reorder`,
+        method: 'PATCH',
+        body: { photos },
+      }),
+    }),
+    updateListingPhotosMetadata: builder.mutation<
+      { ok: boolean; derived?: { beds: number; baths: number } },
+      {
+        listingId: number;
+        photos: Array<{
+          id: number;
+          floor?: string | null;
+          roomType?: string;
+          roomLabel?: string;
+          roomLabelZh?: string;
+        }>;
+      }
+    >({
+      query: ({ listingId, photos }) => ({
+        url: `/api/admin/listings/${listingId}/photos/metadata`,
         method: 'PATCH',
         body: { photos },
       }),
@@ -597,6 +620,18 @@ export const api = createApi({
       }),
       invalidatesTags: ['AdminListings', 'Listings', 'Listing'],
     }),
+    getPhotoCompressionSettings: builder.query<PhotoCompressionSettings, void>({
+      query: () => '/api/admin/settings/photo-compression',
+      providesTags: ['Settings'],
+    }),
+    updatePhotoCompressionSettings: builder.mutation<PhotoCompressionSettings, PhotoCompressionSettings>({
+      query: (body) => ({
+        url: '/api/admin/settings/photo-compression',
+        method: 'PUT',
+        body,
+      }),
+      invalidatesTags: ['Settings'],
+    }),
   }),
 });
 
@@ -618,10 +653,12 @@ export const {
   useCreateListingMutation,
   useCreateDraftListingMutation,
   useUpdateListingMutation,
+  useDeleteListingMutation,
   useUpdateListingStatusMutation,
   usePresignPhotoMutation,
   useConfirmPhotoMutation,
   useReorderPhotosMutation,
+  useUpdateListingPhotosMetadataMutation,
   useDeleteListingPhotoMutation,
   useDeleteAllListingPhotosMutation,
   useGetAdminOffersQuery,
@@ -661,4 +698,6 @@ export const {
   useUpdateListingBadgeMutation,
   useDeleteListingBadgeMutation,
   useSetListingBadgesMutation,
+  useGetPhotoCompressionSettingsQuery,
+  useUpdatePhotoCompressionSettingsMutation,
 } = api;

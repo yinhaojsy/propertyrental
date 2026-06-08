@@ -12,6 +12,7 @@ import {
   useGetPropertyTypesQuery,
   useGetAdminOffersQuery,
   useCreateRentalRecordMutation,
+  useDeleteListingMutation,
 } from '../../store/api';
 import { SearchableSelect } from '../../components/SearchableSelect';
 import { NumberInput } from '../../components/NumberInput';
@@ -105,6 +106,7 @@ export function AdminListingEditPage() {
     skip: !effectiveListingId,
   });
   const [createRentalRecord] = useCreateRentalRecordMutation();
+  const [deleteListing] = useDeleteListingMutation();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
@@ -331,11 +333,30 @@ export function AdminListingEditPage() {
     refetch();
   };
 
+  const handleDeleteListing = async () => {
+    if (!effectiveListingId) return;
+    const title = form.titleEn || listing?.titleEn || `#${effectiveListingId}`;
+    if (!window.confirm(t('admin.confirmDeleteListing', { title }))) return;
+    await deleteListing(effectiveListingId).unwrap();
+    navigate('/staff/listings');
+  };
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">
-        {isNew && !effectiveListingId ? t('admin.newListing') : t('admin.editListing')}
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold">
+          {isNew && !effectiveListingId ? t('admin.newListing') : t('admin.editListing')}
+        </h1>
+        {effectiveListingId && (
+          <button
+            type="button"
+            onClick={() => void handleDeleteListing()}
+            className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+          >
+            {t('admin.deleteListing')}
+          </button>
+        )}
+      </div>
 
       {isListingLocked && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">

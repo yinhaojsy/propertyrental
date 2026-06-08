@@ -147,6 +147,19 @@ export const photoConfirmSchema = z.object({
   sortOrder: z.number().int().min(0).default(0),
   isCover: z.boolean().default(false),
   uploadMode: z.enum(['structured', 'bulk']).default('structured'),
+  fileSizeBytes: z.number().int().positive().optional(),
+});
+
+export const updateListingPhotosMetadataSchema = z.object({
+  photos: z.array(
+    z.object({
+      id: z.number().int().positive(),
+      floor: z.string().max(50).nullable().optional(),
+      roomType: z.string().max(50).optional(),
+      roomLabel: z.string().max(100).optional(),
+      roomLabelZh: z.string().max(100).optional(),
+    }),
+  ),
 });
 
 export const photoReorderSchema = z.object({
@@ -259,6 +272,22 @@ export const updateListingBadgeSchema = createListingBadgeSchema.partial();
 export const setListingBadgesSchema = z.object({
   badgeIds: z.array(z.number().int().positive()),
 });
+
+export const DEFAULT_PHOTO_COMPRESSION_SETTINGS = {
+  enabled: true,
+  minBytes: 1_572_864,
+  quality: 82,
+  maxOutputBytes: null as number | null,
+};
+
+export const photoCompressionSettingsSchema = z.object({
+  enabled: z.boolean(),
+  minBytes: z.number().int().min(0),
+  quality: z.number().int().min(10).max(100),
+  maxOutputBytes: z.number().int().positive().nullable(),
+});
+
+export type PhotoCompressionSettings = z.infer<typeof photoCompressionSettingsSchema>;
 
 export type SearchListingsInput = z.infer<typeof searchListingsSchema>;
 export type CreateListingInput = z.infer<typeof createListingSchema>;

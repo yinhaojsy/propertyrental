@@ -5,6 +5,8 @@ import { config } from '../config.js';
 import { db } from '../db/index.js';
 import { listingPhotos, listings } from '../db/schema.js';
 import { getObjectBuffer, putObjectBuffer } from './storage.js';
+import { getPhotoCompressionSettings } from './photo-compression-settings.js';
+import { compressImageBuffer } from './compress-image.js';
 
 const connection = { url: config.redisUrl };
 
@@ -31,7 +33,16 @@ export async function enqueueOfferNotification(offerId: number): Promise<void> {
 
 async function processImage(job: Job<ProcessImageJob>): Promise<void> {
   const { photoId, listingId, storageKey } = job.data;
-  const buffer = await getObjectBuffer(storageKey);
+  const originalBuffer = await getObjectBuffer(storageKey);
+  const compressionSettings = await getPhotoCompressionSettings();
+  const { buffer, compressed, contentType } = await compressImageBuffer(
+    originalBuffer,
+    compressionSettings,
+  );
+
+  if (compressed) {
+    await putObjectBuffer(storageKey, buffer, contentType);
+  }
 
   const thumbnailKey = storageKey
     .replace('/original/', '/thumb/')
@@ -49,6 +60,7 @@ async function processImage(job: Job<ProcessImageJob>): Promise<void> {
     .set({
       thumbnailKey,
       processingStatus: 'complete',
+      ...(compressed ? { fileSizeBytes: buffer.length } : {}),
     })
     .where(eq(listingPhotos.id, photoId));
 

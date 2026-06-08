@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command, CreateBucketCommand, HeadBucketCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
 import { config, isProd } from '../config.js';
@@ -6,6 +6,8 @@ import {
   ensureLocalStorage,
   writeLocalFile,
   readLocalFile,
+  deleteLocalFile,
+  deleteLocalListingFolder,
   localPublicUrl,
   localUploadUrl,
 } from './local-storage.js';
@@ -124,6 +126,48 @@ export async function putObjectBuffer(
       ContentType: contentType,
     }),
   );
+}
+
+export async function deleteObjectKey(key: string | null | undefined): Promise<void> {
+  if (!key) return;
+  await ensureBucket();
+  if (storageMode === 'local') {
+    await deleteLocalFile(key);
+    return;
+  }
+
+  try {
+    await s3.send(new DeleteObjectCommand({ Bucket: config.s3.bucket, Key: key }));
+  } catch (err) {
+    console.warn(`Failed to delete storage object ${key}:`, err instanceof Error ? err.message : err);
+  }
+}
+
+export async function deleteListingStorage(listingId: number): Promise<void> {
+  await ensureBucket();
+  if (storageMode === 'local') {
+    await deleteLocalListingFolder(listingId);
+    return;
+  }
+
+  const prefix = `listings/${listingId}/`;
+  let continuationToken: string | undefined;
+  do {
+    const listed = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: config.s3.bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      }),
+    );
+    const keys = (listed.Contents ?? []).map((o) => o.Key).filter(Boolean) as string[];
+    if (keys.length > 0) {
+      await Promise.all(
+        keys.map((Key) => s3.send(new DeleteObjectCommand({ Bucket: config.s3.bucket, Key }))),
+      );
+    }
+    continuationToken = listed.IsTruncated ? listed.NextContinuationToken : undefined;
+  } while (continuationToken);
 }
 
 export { s3 };

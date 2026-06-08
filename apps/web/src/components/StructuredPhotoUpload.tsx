@@ -28,11 +28,14 @@ import {
   usePresignPhotoMutation,
   useConfirmPhotoMutation,
   useReorderPhotosMutation,
+  useUpdateListingPhotosMetadataMutation,
   useDeleteListingPhotoMutation,
   useGetPhotoConfigQuery,
 } from '../store/api';
 import { labelFor } from '../lib/labels';
+import { formatFileSize } from '../lib/format';
 import type { PhotoItem } from './ListingPhotoUpload';
+import { AdminPhotoLightbox, type AdminPhotoPreview } from './AdminPhotoLightbox';
 
 export interface UploadSlot {
   id: string;
@@ -88,12 +91,14 @@ function SortablePhoto({
   photo,
   onDelete,
   onSetCover,
+  onPreview,
   busy,
   readOnly,
 }: {
   photo: PhotoItem;
   onDelete: () => void;
   onSetCover: () => void;
+  onPreview: () => void;
   busy: boolean;
   readOnly?: boolean;
 }) {
@@ -113,7 +118,14 @@ function SortablePhoto({
       }`}
     >
       {photo.url && (
-        <img src={photo.url} alt="" className="aspect-square w-full object-cover" draggable={false} />
+        <button
+          type="button"
+          onClick={onPreview}
+          className="block w-full cursor-zoom-in"
+          aria-label={t('admin.viewPhoto')}
+        >
+          <img src={photo.url} alt="" className="aspect-square w-full object-cover" draggable={false} />
+        </button>
       )}
       {!readOnly && (
         <>
@@ -149,6 +161,11 @@ function SortablePhoto({
           >
             ⋮⋮
           </button>
+          {photo.fileSizeBytes != null && photo.fileSizeBytes > 0 && (
+            <span className="pointer-events-none absolute bottom-1 left-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+              {formatFileSize(photo.fileSizeBytes)}
+            </span>
+          )}
         </>
       )}
       {readOnly && photo.isCover && (
@@ -184,6 +201,7 @@ export function StructuredPhotoUpload({
   const [presignPhoto] = usePresignPhotoMutation();
   const [confirmPhoto] = useConfirmPhotoMutation();
   const [reorderPhotos] = useReorderPhotosMutation();
+  const [updatePhotosMetadata] = useUpdateListingPhotosMetadataMutation();
   const [deleteListingPhoto] = useDeleteListingPhotoMutation();
 
   const floors = photoConfig?.floors ?? [];
@@ -231,8 +249,10 @@ export function StructuredPhotoUpload({
   const [uploadSlots, setUploadSlots] = useState<UploadSlot[]>([]);
   const [uploadingSlotId, setUploadingSlotId] = useState<string | null>(null);
   const [dragOverSlotId, setDragOverSlotId] = useState<string | null>(null);
+  const [updatingSlotId, setUpdatingSlotId] = useState<string | null>(null);
   const [photoActionId, setPhotoActionId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [previewPhoto, setPreviewPhoto] = useState<AdminPhotoPreview | null>(null);
   const pendingEmptySlotIds = useRef<Set<string>>(new Set());
 
   const defaultFloor =
@@ -256,13 +276,28 @@ export function StructuredPhotoUpload({
   );
 
   const computeSlotLabels = useCallback(
-    (roomType: string, floor: string | null, excludeSlotId: string | null, existingSlots: UploadSlot[]) => {
+    (
+      roomType: string,
+      floor: string | null,
+      excludeSlotId: string | null,
+      existingSlots: UploadSlot[],
+      excludePhotoIds?: Set<number>,
+    ) => {
+      const fromPhotos = sortedPhotos
+        .filter((p) => !excludePhotoIds?.has(p.id))
+        .map((p) => ({
+          floor: p.floor,
+          roomType: p.roomType,
+          roomLabel: p.roomLabel,
+          roomLabelZh: p.roomLabelZh,
+          uploadMode: p.uploadMode,
+        }));
       const others = existingSlots
         .filter((s) => s.id !== excludeSlotId)
         .map(slotToMeta);
-      return suggestRoomLabels(roomType, floor, [...photoMeta, ...others], roomTypeConfigFor(roomType));
+      return suggestRoomLabels(roomType, floor, [...fromPhotos, ...others], roomTypeConfigFor(roomType));
     },
-    [photoMeta, roomTypeConfigFor],
+    [sortedPhotos, roomTypeConfigFor],
   );
 
   const createDefaultSlot = useCallback(
@@ -319,7 +354,7 @@ export function StructuredPhotoUpload({
     [roomTypes, availableFloors, floorRoomTypes, showFloor],
   );
 
-  const busy = uploadingSlotId != null || photoActionId != null;
+  const busy = uploadingSlotId != null || photoActionId != null || updatingSlotId != null;
 
   const applyDerived = (derived?: { beds: number; baths: number }) => {
     if (!derived) return;
@@ -329,20 +364,51 @@ export function StructuredPhotoUpload({
     );
   };
 
-  const updateSlot = (slotId: string, patch: Partial<Pick<UploadSlot, 'floor' | 'roomType'>>) => {
+  const updateSlot = async (
+    slotId: string,
+    patch: Partial<Pick<UploadSlot, 'floor' | 'roomType'>>,
+  ) => {
+    const slot = uploadSlots.find((s) => s.id === slotId);
+    if (!slot) return;
+
+    let roomType = patch.roomType ?? slot.roomType;
+    let floor = patch.floor !== undefined ? patch.floor : slot.floor;
+    if (showFloor && !floor) {
+      floor = defaultFloor;
+    }
+
+    const slotPhotoList = slotPhotos(sortedPhotos, slot);
+    const excludeIds = new Set(slotPhotoList.map((p) => p.id));
+    const labels = computeSlotLabels(roomType, floor, slotId, uploadSlots, excludeIds);
+
+    if (slotPhotoList.length > 0 && listingId) {
+      setError(null);
+      setUpdatingSlotId(slotId);
+      try {
+        const result = await updatePhotosMetadata({
+          listingId,
+          photos: slotPhotoList.map((p) => ({
+            id: p.id,
+            floor: showFloor ? floor : null,
+            roomType,
+            roomLabel: labels.labelEn,
+            roomLabelZh: labels.labelZh,
+          })),
+        }).unwrap();
+        applyDerived(result.derived);
+        onRefetch();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('common.error'));
+      } finally {
+        setUpdatingSlotId(null);
+      }
+      return;
+    }
+
     setUploadSlots((prev) =>
-      prev.map((slot) => {
-        if (slot.id !== slotId) return slot;
-        if (slotPhotos(sortedPhotos, slot).length > 0) return slot;
-
-        let roomType = patch.roomType ?? slot.roomType;
-        let floor = patch.floor !== undefined ? patch.floor : slot.floor;
-        if (showFloor && !floor) {
-          floor = defaultFloor;
-        }
-
-        const labels = computeSlotLabels(roomType, floor, slotId, prev);
-        return { ...slot, roomType, floor, ...labels };
+      prev.map((s) => {
+        if (s.id !== slotId) return s;
+        return { ...s, roomType, floor, ...labels };
       }),
     );
   };
@@ -438,6 +504,7 @@ export function StructuredPhotoUpload({
             sortOrder,
             uploadMode: 'structured',
             isCover: !hasAnyPhoto && sortOrder === sortedPhotos.length,
+            fileSizeBytes: file.size,
           },
         }).unwrap()) as { derived?: { beds: number; baths: number } };
 
@@ -532,9 +599,9 @@ export function StructuredPhotoUpload({
 
       {uploadSlots.map((slot) => {
         const slotPhotoList = slotPhotos(sortedPhotos, slot);
-        const hasPhotos = slotPhotoList.length > 0;
         const roomOptions = availableRoomTypesForFloor(slot.floor ?? defaultFloor);
         const isUploading = uploadingSlotId === slot.id;
+        const isUpdating = updatingSlotId === slot.id;
         const isDragOver = dragOverSlotId === slot.id;
         const slotFloor = slot.floor ?? defaultFloor ?? '';
 
@@ -580,8 +647,8 @@ export function StructuredPhotoUpload({
                     </span>
                     <select
                       value={slotFloor}
-                      onChange={(e) => updateSlot(slot.id, { floor: e.target.value })}
-                      disabled={hasPhotos}
+                      onChange={(e) => void updateSlot(slot.id, { floor: e.target.value })}
+                      disabled={busy || isUpdating}
                       className="w-full rounded-lg border bg-white px-3 py-2 disabled:bg-gray-100"
                     >
                       {availableFloors.map((f) => (
@@ -598,8 +665,8 @@ export function StructuredPhotoUpload({
                   </span>
                   <select
                     value={slot.roomType}
-                    onChange={(e) => updateSlot(slot.id, { roomType: e.target.value })}
-                    disabled={hasPhotos}
+                    onChange={(e) => void updateSlot(slot.id, { roomType: e.target.value })}
+                    disabled={busy || isUpdating}
                     className="w-full rounded-lg border bg-white px-3 py-2 disabled:bg-gray-100"
                   >
                     {roomOptions.map((r) => (
@@ -666,10 +733,17 @@ export function StructuredPhotoUpload({
                   {slotPhotoList.map((photo) => (
                     <div key={photo.id} className="relative overflow-hidden rounded-lg border bg-white">
                       {photo.url && (
-                        <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setPreviewPhoto(photo)}
+                          className="block w-full cursor-zoom-in"
+                          aria-label={t('admin.viewPhoto')}
+                        >
+                          <img src={photo.url} alt="" className="aspect-square w-full object-cover" />
+                        </button>
                       )}
                       {photo.isCover && (
-                        <span className="absolute left-1 top-1 rounded bg-brand px-1 text-xs text-white">
+                        <span className="pointer-events-none absolute left-1 top-1 rounded bg-brand px-1 text-xs text-white">
                           {t('admin.coverPhoto')}
                         </span>
                       )}
@@ -692,6 +766,7 @@ export function StructuredPhotoUpload({
                           key={photo.id}
                           photo={photo}
                           busy={busy}
+                          onPreview={() => setPreviewPhoto(photo)}
                           onDelete={() => void handleDeletePhoto(photo.id)}
                           onSetCover={() => void handleSetCover(photo.id)}
                         />
@@ -715,6 +790,8 @@ export function StructuredPhotoUpload({
           })}
         </p>
       )}
+
+      <AdminPhotoLightbox photo={previewPhoto} onClose={() => setPreviewPhoto(null)} />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   photoUploadRequestSchema,
   photoConfirmSchema,
   photoReorderSchema,
+  updateListingPhotosMetadataSchema,
   rentalRecordSchema,
 } from '@property-rental/shared';
 import { db } from '../db/index.js';
@@ -40,7 +41,8 @@ import {
   getDashboardStats,
   loadBadgesForListings,
 } from '../services/listings.js';
-import { getPresignedUploadUrl } from '../lib/storage.js';
+import { getPresignedUploadUrl, deleteListingStorage } from '../lib/storage.js';
+import { deletePhotoFiles } from '../lib/photo-files.js';
 import { enqueueImageProcessing } from '../lib/queue.js';
 import { publicPhotoUrl } from '../lib/utils.js';
 
@@ -304,6 +306,30 @@ router.patch(
   },
 );
 
+router.delete(
+  '/listings/:id',
+  csrfProtection,
+  requirePermission('listings:write'),
+  async (req, res, next) => {
+    try {
+      const listingId = parseInt(String(req.params.id), 10);
+      const [listing] = await db.select().from(listings).where(eq(listings.id, listingId));
+      if (!listing) {
+        res.status(404).json({ error: 'Listing not found' });
+        return;
+      }
+
+      await db.delete(rentalRecords).where(eq(rentalRecords.listingId, listingId));
+      await db.delete(listings).where(eq(listings.id, listingId));
+      await deleteListingStorage(listingId);
+
+      res.json({ ok: true });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 router.patch(
   '/listings/:id/status',
   csrfProtection,
@@ -382,6 +408,7 @@ router.post(
           isCover: data.isCover,
           uploadMode: data.uploadMode,
           processingStatus: 'pending',
+          fileSizeBytes: data.fileSizeBytes,
         })
         .returning();
 
@@ -456,6 +483,38 @@ router.patch(
   },
 );
 
+router.patch(
+  '/listings/:id/photos/metadata',
+  csrfProtection,
+  requirePermission('listings:write'),
+  validateBody(updateListingPhotosMetadataSchema),
+  async (req, res, next) => {
+    try {
+      const listingId = parseInt(String(req.params.id), 10);
+      const { photos } = req.body;
+
+      for (const photo of photos) {
+        const update: Record<string, unknown> = {};
+        if (photo.floor !== undefined) update.floor = photo.floor;
+        if (photo.roomType !== undefined) update.roomType = photo.roomType;
+        if (photo.roomLabel !== undefined) update.roomLabel = photo.roomLabel;
+        if (photo.roomLabelZh !== undefined) update.roomLabelZh = photo.roomLabelZh;
+        if (Object.keys(update).length === 0) continue;
+
+        await db
+          .update(listingPhotos)
+          .set(update)
+          .where(and(eq(listingPhotos.id, photo.id), eq(listingPhotos.listingId, listingId)));
+      }
+
+      const derived = await syncListingBedsBathsFromPhotos(listingId);
+      res.json({ ok: true, derived: derived ?? undefined });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
 router.delete(
   '/listings/:id/photos',
   csrfProtection,
@@ -463,7 +522,15 @@ router.delete(
   async (req, res, next) => {
     try {
       const listingId = parseInt(String(req.params.id), 10);
+      const photos = await db
+        .select()
+        .from(listingPhotos)
+        .where(eq(listingPhotos.listingId, listingId));
+
+      await Promise.all(photos.map((photo) => deletePhotoFiles(photo)));
       await db.delete(listingPhotos).where(eq(listingPhotos.listingId, listingId));
+      await deleteListingStorage(listingId);
+
       const derived = await syncListingBedsBathsFromPhotos(listingId);
       res.json({ ok: true, derived: derived ?? undefined });
     } catch (err) {
@@ -490,6 +557,7 @@ router.delete(
       }
 
       const wasCover = photo.isCover;
+      await deletePhotoFiles(photo);
       await db
         .delete(listingPhotos)
         .where(and(eq(listingPhotos.id, photoId), eq(listingPhotos.listingId, listingId)));
