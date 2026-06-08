@@ -177,6 +177,24 @@ export function usesFloorForSubtype(propertySubtype: string): boolean {
   return !['office', 'shop', 'building', 'warehouse', 'factory'].includes(propertySubtype);
 }
 
+export interface PhotoSubtypeFloorLink {
+  propertySubtype: string;
+  floorId: number;
+}
+
+export function resolveFloorsForSubtype<
+  T extends { id: number; isActive?: boolean },
+>(propertySubtype: string, floors: T[], subtypeFloors: PhotoSubtypeFloorLink[]): T[] {
+  const activeFloors = floors.filter((f) => f.isActive !== false);
+  const links = subtypeFloors.filter((l) => l.propertySubtype === propertySubtype);
+  if (links.length === 0) {
+    if (!usesFloorForSubtype(propertySubtype)) return [];
+    return activeFloors;
+  }
+  const linkedIds = new Set(links.map((l) => l.floorId));
+  return activeFloors.filter((f) => linkedIds.has(f.id));
+}
+
 export function isResidentialStructuredSubtype(
   listingType: string,
   propertySubtype: string,

@@ -171,10 +171,16 @@ export interface PhotoFloorRoomType {
   roomTypeId: number;
 }
 
+export interface PhotoSubtypeFloor {
+  propertySubtype: string;
+  floorId: number;
+}
+
 export interface PhotoConfig {
   floors: PhotoFloor[];
   roomTypes: PhotoRoomType[];
   floorRoomTypes: PhotoFloorRoomType[];
+  subtypeFloors: PhotoSubtypeFloor[];
 }
 
 export interface User {
@@ -523,6 +529,17 @@ export const api = createApi({
       }),
       invalidatesTags: ['PhotoConfig'],
     }),
+    setPhotoSubtypeFloors: builder.mutation<
+      { subtypeFloors: PhotoSubtypeFloor[] },
+      { propertySubtype: string; floorIds: number[] }
+    >({
+      query: ({ propertySubtype, floorIds }) => ({
+        url: `/api/admin/photo-subtypes/${encodeURIComponent(propertySubtype)}/floors`,
+        method: 'PUT',
+        body: { floorIds },
+      }),
+      invalidatesTags: ['PhotoConfig'],
+    }),
   }),
 });
 
@@ -581,4 +598,5 @@ export const {
   useUpdatePhotoRoomTypeMutation,
   useDeletePhotoRoomTypeMutation,
   useSetPhotoFloorRoomTypesMutation,
+  useSetPhotoSubtypeFloorsMutation,
 } = api;

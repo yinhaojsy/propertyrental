@@ -234,6 +234,10 @@ export const setPhotoFloorRoomTypesSchema = z.object({
   roomTypeIds: z.array(z.number().int().positive()),
 });
 
+export const setPhotoSubtypeFloorsSchema = z.object({
+  floorIds: z.array(z.number().int().positive()),
+});
+
 export type SearchListingsInput = z.infer<typeof searchListingsSchema>;
 export type CreateListingInput = z.infer<typeof createListingSchema>;
 export type CreateOfferInput = z.infer<typeof createOfferSchema>;

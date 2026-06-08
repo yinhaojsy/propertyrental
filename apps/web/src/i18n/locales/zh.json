@@ -259,7 +259,10 @@
     "autoNumber": "自动编号",
     "roomTypeLabelHelp": "为每种房间类型设置默认标签。自动编号会为卧室和卫生间添加 1、2、3…",
     "floorRoomTypes": "每层可用房间类型",
-    "floorRoomTypesHelp": "选择在照片上传时选中某楼层后显示的房间类型。"
+    "floorRoomTypesHelp": "选择在照片上传时选中某楼层后显示的房间类型。",
+    "subtypeFloors": "各子类型的可用楼层",
+    "subtypeFloorsHelp": "为每种物业子类型（如独立屋）选择上传照片时可用的楼层。全部不选则该子类型不显示楼层。",
+    "photoConfigMissingSeed": "未找到楼层数据。请重启 API 以运行迁移和种子数据，或在 api 包中运行 npm run db:migrate 和 npm run db:seed。"
   },
   "common": {
     "loading": "加载中...",

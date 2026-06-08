@@ -9,6 +9,7 @@ import {
   photoFloors,
   photoRoomTypes,
   photoFloorRoomTypes,
+  photoSubtypeFloors,
 } from '../db/schema.js';
 
 const router = Router();
@@ -86,7 +87,8 @@ router.get('/photo-config', async (_req, res, next) => {
       .where(eq(photoRoomTypes.isActive, true))
       .orderBy(photoRoomTypes.sortOrder, photoRoomTypes.nameEn);
     const floorRoomTypes = await db.select().from(photoFloorRoomTypes);
-    res.json({ floors, roomTypes, floorRoomTypes });
+    const subtypeFloors = await db.select().from(photoSubtypeFloors);
+    res.json({ floors, roomTypes, floorRoomTypes, subtypeFloors });
   } catch (err) {
     next(err);
   }

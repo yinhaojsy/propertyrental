@@ -20,8 +20,8 @@ import { CSS } from '@dnd-kit/utilities';
 import {
   deriveBedsBathsFromPhotoMetadata,
   formatRoomSlotLabel,
+  resolveFloorsForSubtype,
   suggestRoomLabels,
-  usesFloorForSubtype,
   type PhotoMetadata,
 } from '@property-rental/shared';
 import {
@@ -189,7 +189,13 @@ export function StructuredPhotoUpload({
   const floors = photoConfig?.floors ?? [];
   const roomTypes = photoConfig?.roomTypes ?? [];
   const floorRoomTypes = photoConfig?.floorRoomTypes ?? [];
-  const showFloor = usesFloorForSubtype(propertySubtype);
+  const subtypeFloors = photoConfig?.subtypeFloors ?? [];
+
+  const availableFloors = useMemo(
+    () => resolveFloorsForSubtype(propertySubtype, floors, subtypeFloors),
+    [propertySubtype, floors, subtypeFloors],
+  );
+  const showFloor = availableFloors.length > 0;
 
   const sortedPhotos = useMemo(
     () => [...photos].sort((a, b) => a.sortOrder - b.sortOrder),
@@ -211,7 +217,7 @@ export function StructuredPhotoUpload({
   const formatOptions = useMemo(
     () => ({
       locale: i18n.language,
-      floors: floors.map((f) => ({ slug: f.slug, nameEn: f.nameEn, nameZh: f.nameZh })),
+      floors: availableFloors.map((f) => ({ slug: f.slug, nameEn: f.nameEn, nameZh: f.nameZh })),
       roomTypes: roomTypes.map((rt) => ({
         slug: rt.slug,
         labelEn: rt.labelEn,
@@ -219,7 +225,7 @@ export function StructuredPhotoUpload({
         autoNumber: rt.autoNumber,
       })),
     }),
-    [i18n.language, floors, roomTypes],
+    [i18n.language, availableFloors, roomTypes],
   );
 
   const [uploadSlots, setUploadSlots] = useState<UploadSlot[]>([]);
@@ -229,7 +235,10 @@ export function StructuredPhotoUpload({
   const [error, setError] = useState<string | null>(null);
   const pendingEmptySlotIds = useRef<Set<string>>(new Set());
 
-  const defaultFloor = floors.find((f) => f.slug === 'ground')?.slug ?? floors[0]?.slug ?? null;
+  const defaultFloor =
+    availableFloors.find((f) => f.slug === 'ground')?.slug ??
+    availableFloors[0]?.slug ??
+    null;
   const defaultRoomType = roomTypes[0]?.slug ?? 'bedroom';
 
   const roomTypeConfigFor = useCallback(
@@ -299,7 +308,7 @@ export function StructuredPhotoUpload({
   const availableRoomTypesForFloor = useCallback(
     (floorSlug: string | null) => {
       if (!showFloor || !floorSlug) return roomTypes;
-      const floor = floors.find((f) => f.slug === floorSlug);
+      const floor = availableFloors.find((f) => f.slug === floorSlug);
       if (!floor) return roomTypes;
       const linkedIds = new Set(
         floorRoomTypes.filter((link) => link.floorId === floor.id).map((link) => link.roomTypeId),
@@ -307,7 +316,7 @@ export function StructuredPhotoUpload({
       if (linkedIds.size === 0) return roomTypes;
       return roomTypes.filter((rt) => linkedIds.has(rt.id));
     },
-    [roomTypes, floors, floorRoomTypes, showFloor],
+    [roomTypes, availableFloors, floorRoomTypes, showFloor],
   );
 
   const busy = uploadingSlotId != null || photoActionId != null;
@@ -575,7 +584,7 @@ export function StructuredPhotoUpload({
                       disabled={hasPhotos}
                       className="w-full rounded-lg border bg-white px-3 py-2 disabled:bg-gray-100"
                     >
-                      {floors.map((f) => (
+                      {availableFloors.map((f) => (
                         <option key={f.slug} value={f.slug}>
                           {labelFor(f.nameEn, f.nameZh, i18n.language, f.slug)}
                         </option>

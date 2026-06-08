@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   useGetAdminPhotoConfigQuery,
+  useGetPropertyTypesQuery,
   useCreatePhotoFloorMutation,
   useUpdatePhotoFloorMutation,
   useDeletePhotoFloorMutation,
@@ -9,6 +10,7 @@ import {
   useUpdatePhotoRoomTypeMutation,
   useDeletePhotoRoomTypeMutation,
   useSetPhotoFloorRoomTypesMutation,
+  useSetPhotoSubtypeFloorsMutation,
 } from '../../store/api';
 import { labelFor } from '../../lib/labels';
 
@@ -18,9 +20,39 @@ export function AdminPhotoConfigPage() {
   const floors = data?.floors ?? [];
   const roomTypes = data?.roomTypes ?? [];
   const floorRoomTypes = data?.floorRoomTypes ?? [];
+  const subtypeFloors = data?.subtypeFloors ?? [];
+
+  const { data: propertyTypeData } = useGetPropertyTypesQuery();
+  const propertyTypes = propertyTypeData?.types ?? [];
+  const propertySubtypes = propertyTypeData?.subtypes ?? [];
 
   const [selectedFloorId, setSelectedFloorId] = useState<number | null>(null);
   const floorId = selectedFloorId ?? floors[0]?.id ?? null;
+  const [selectedTypeSlug, setSelectedTypeSlug] = useState<string | null>('residential');
+  const typeSlug =
+    selectedTypeSlug ??
+    propertyTypes.find((t) => t.slug === 'residential')?.slug ??
+    propertyTypes[0]?.slug ??
+    null;
+  const subtypesForType = useMemo(
+    () =>
+      propertySubtypes.filter(
+        (s) => propertyTypes.find((t) => t.id === s.propertyTypeId)?.slug === typeSlug,
+      ),
+    [propertySubtypes, propertyTypes, typeSlug],
+  );
+  const [selectedSubtypeSlug, setSelectedSubtypeSlug] = useState<string | null>(null);
+  const subtypeSlug = selectedSubtypeSlug ?? subtypesForType[0]?.slug ?? null;
+
+  useEffect(() => {
+    if (subtypesForType.length === 0) {
+      setSelectedSubtypeSlug(null);
+      return;
+    }
+    if (!subtypesForType.some((s) => s.slug === selectedSubtypeSlug)) {
+      setSelectedSubtypeSlug(subtypesForType[0]!.slug);
+    }
+  }, [subtypesForType, selectedSubtypeSlug]);
 
   const [createFloor] = useCreatePhotoFloorMutation();
   const [updateFloor] = useUpdatePhotoFloorMutation();
@@ -29,6 +61,7 @@ export function AdminPhotoConfigPage() {
   const [updateRoomType] = useUpdatePhotoRoomTypeMutation();
   const [deleteRoomType] = useDeletePhotoRoomTypeMutation();
   const [setFloorRoomTypes] = useSetPhotoFloorRoomTypesMutation();
+  const [setSubtypeFloors] = useSetPhotoSubtypeFloorsMutation();
 
   const [floorForm, setFloorForm] = useState({ nameEn: '', nameZh: '', slug: '' });
   const [roomTypeForm, setRoomTypeForm] = useState({
@@ -46,6 +79,15 @@ export function AdminPhotoConfigPage() {
       floorRoomTypes.filter((link) => link.floorId === floorId).map((link) => link.roomTypeId),
     );
   }, [floorRoomTypes, floorId]);
+
+  const linkedFloorIds = useMemo(() => {
+    if (!subtypeSlug) return new Set<number>();
+    return new Set(
+      subtypeFloors
+        .filter((link) => link.propertySubtype === subtypeSlug)
+        .map((link) => link.floorId),
+    );
+  }, [subtypeFloors, subtypeSlug]);
 
   const handleCreateFloor = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +127,17 @@ export function AdminPhotoConfigPage() {
     await setFloorRoomTypes({
       floorId,
       roomTypeIds: [...next],
+    }).unwrap();
+  };
+
+  const toggleSubtypeFloor = async (linkedFloorId: number) => {
+    if (!subtypeSlug) return;
+    const next = new Set(linkedFloorIds);
+    if (next.has(linkedFloorId)) next.delete(linkedFloorId);
+    else next.add(linkedFloorId);
+    await setSubtypeFloors({
+      propertySubtype: subtypeSlug,
+      floorIds: [...next],
     }).unwrap();
   };
 
@@ -367,6 +420,65 @@ export function AdminPhotoConfigPage() {
               </label>
             ))}
           </div>
+        )}
+      </section>
+
+      <section className="space-y-4 rounded-xl bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-semibold">{t('admin.subtypeFloors')}</h2>
+            <p className="text-sm text-gray-600">{t('admin.subtypeFloorsHelp')}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={typeSlug ?? ''}
+              onChange={(e) => {
+                setSelectedTypeSlug(e.target.value);
+                setSelectedSubtypeSlug(null);
+              }}
+              className="rounded-lg border px-3 py-2"
+            >
+              {propertyTypes.map((type) => (
+                <option key={type.id} value={type.slug}>
+                  {labelFor(type.nameEn, type.nameZh, i18n.language, type.slug)}
+                </option>
+              ))}
+            </select>
+            <select
+              value={subtypeSlug ?? ''}
+              onChange={(e) => setSelectedSubtypeSlug(e.target.value)}
+              disabled={subtypesForType.length === 0}
+              className="rounded-lg border px-3 py-2 disabled:bg-gray-100"
+            >
+              {subtypesForType.map((subtype) => (
+                <option key={subtype.id} value={subtype.slug}>
+                  {labelFor(subtype.nameEn, subtype.nameZh, i18n.language, subtype.slug)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {floors.length === 0 ? (
+          <p className="text-sm text-amber-700">{t('admin.photoConfigMissingSeed')}</p>
+        ) : (
+          subtypeSlug && (
+            <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3">
+              {floors.map((floor) => (
+                <label
+                  key={floor.id}
+                  className="flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    checked={linkedFloorIds.has(floor.id)}
+                    onChange={() => void toggleSubtypeFloor(floor.id)}
+                  />
+                  <span>{labelFor(floor.nameEn, floor.nameZh, i18n.language, floor.slug)}</span>
+                </label>
+              ))}
+            </div>
+          )
         )}
       </section>
     </div>

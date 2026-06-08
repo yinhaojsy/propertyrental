@@ -36,6 +36,13 @@
       "when": 1780745661891,
       "tag": "0004_photo_config",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1780745661892,
+      "tag": "0005_photo_subtype_floors",
+      "breakpoints": true
     }
   ]
 }

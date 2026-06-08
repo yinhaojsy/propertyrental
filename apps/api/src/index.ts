@@ -75,7 +75,7 @@ app.use(
 export let httpServer: ReturnType<typeof app.listen> | undefined;
 
 async function start(): Promise<void> {
-  if (isProd && process.env.RUN_MIGRATIONS_ON_START !== 'false') {
+  if (process.env.RUN_MIGRATIONS_ON_START !== 'false') {
     try {
       await runMigrations();
       if (process.env.RUN_SEED_ON_START !== 'false') {
@@ -83,7 +83,7 @@ async function start(): Promise<void> {
       }
     } catch (err) {
       console.error('Database setup failed:', err instanceof Error ? err.message : err);
-      process.exit(1);
+      if (isProd) process.exit(1);
     }
   }
 

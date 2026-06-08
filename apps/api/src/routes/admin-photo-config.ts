@@ -6,12 +6,14 @@ import {
   createPhotoRoomTypeSchema,
   updatePhotoRoomTypeSchema,
   setPhotoFloorRoomTypesSchema,
+  setPhotoSubtypeFloorsSchema,
 } from '@property-rental/shared';
 import { db } from '../db/index.js';
 import {
   photoFloors,
   photoRoomTypes,
   photoFloorRoomTypes,
+  photoSubtypeFloors,
   listingPhotos,
 } from '../db/schema.js';
 import { requirePermission, csrfProtection } from '../middleware/auth.js';
@@ -34,7 +36,8 @@ router.get('/photo-config', requirePermission('locations:read'), async (_req, re
       .from(photoRoomTypes)
       .orderBy(photoRoomTypes.sortOrder, photoRoomTypes.nameEn);
     const floorRoomTypes = await db.select().from(photoFloorRoomTypes);
-    res.json({ floors, roomTypes, floorRoomTypes });
+    const subtypeFloors = await db.select().from(photoSubtypeFloors);
+    res.json({ floors, roomTypes, floorRoomTypes, subtypeFloors });
   } catch (err) {
     next(err);
   }
@@ -242,6 +245,51 @@ router.put(
         .from(photoFloorRoomTypes)
         .where(eq(photoFloorRoomTypes.floorId, floorId));
       res.json({ floorRoomTypes });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+router.put(
+  '/photo-subtypes/:subtype/floors',
+  requirePermission('locations:write'),
+  csrfProtection,
+  validateBody(setPhotoSubtypeFloorsSchema),
+  async (req, res, next) => {
+    try {
+      const propertySubtype = String(req.params.subtype);
+      const { floorIds } = req.body;
+
+      if (floorIds.length > 0) {
+        const existing = await db
+          .select()
+          .from(photoFloors)
+          .where(inArray(photoFloors.id, floorIds));
+        if (existing.length !== floorIds.length) {
+          res.status(400).json({ error: 'One or more floor IDs are invalid' });
+          return;
+        }
+      }
+
+      await db
+        .delete(photoSubtypeFloors)
+        .where(eq(photoSubtypeFloors.propertySubtype, propertySubtype));
+
+      if (floorIds.length > 0) {
+        await db.insert(photoSubtypeFloors).values(
+          floorIds.map((floorId: number) => ({
+            propertySubtype,
+            floorId,
+          })),
+        );
+      }
+
+      const subtypeFloors = await db
+        .select()
+        .from(photoSubtypeFloors)
+        .where(eq(photoSubtypeFloors.propertySubtype, propertySubtype));
+      res.json({ subtypeFloors });
     } catch (err) {
       next(err);
     }

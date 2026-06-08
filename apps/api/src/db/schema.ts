@@ -118,6 +118,17 @@ export const photoFloorRoomTypes = pgTable(
   (t) => [uniqueIndex('photo_floor_room_types_pk').on(t.floorId, t.roomTypeId)],
 );
 
+export const photoSubtypeFloors = pgTable(
+  'photo_subtype_floors',
+  {
+    propertySubtype: text('property_subtype').notNull(),
+    floorId: integer('floor_id')
+      .notNull()
+      .references(() => photoFloors.id, { onDelete: 'cascade' }),
+  },
+  (t) => [uniqueIndex('photo_subtype_floors_pk').on(t.propertySubtype, t.floorId)],
+);
+
 export const cities = pgTable('cities', {
   id: serial('id').primaryKey(),
   slug: text('slug').notNull().unique(),
@@ -357,6 +368,7 @@ export const propertySubtypesRelations = relations(propertySubtypes, ({ one }) =
 
 export const photoFloorsRelations = relations(photoFloors, ({ many }) => ({
   floorRoomTypes: many(photoFloorRoomTypes),
+  subtypeFloors: many(photoSubtypeFloors),
 }));
 
 export const photoRoomTypesRelations = relations(photoRoomTypes, ({ many }) => ({
@@ -371,6 +383,13 @@ export const photoFloorRoomTypesRelations = relations(photoFloorRoomTypes, ({ on
   roomType: one(photoRoomTypes, {
     fields: [photoFloorRoomTypes.roomTypeId],
     references: [photoRoomTypes.id],
+  }),
+}));
+
+export const photoSubtypeFloorsRelations = relations(photoSubtypeFloors, ({ one }) => ({
+  floor: one(photoFloors, {
+    fields: [photoSubtypeFloors.floorId],
+    references: [photoFloors.id],
   }),
 }));
 

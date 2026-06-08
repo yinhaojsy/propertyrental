@@ -13,6 +13,8 @@ import {
 } from './schema.js';
 import islamabadSectors from './seeds/islamabad-sectors.json' with { type: 'json' };
 import rawalpindiSectors from './seeds/rawalpindi-sectors.json' with { type: 'json' };
+import { seedPhotoConfig } from './seed-photo-config.js';
+import { seedPropertyTypes } from './seed-property-types.js';
 
 function slugify(name: string): string {
   return name
@@ -117,6 +119,9 @@ export async function seedDatabase(): Promise<void> {
   } else {
     console.log('Bootstrap admin already exists.');
   }
+
+  await seedPropertyTypes();
+  await seedPhotoConfig();
 
   console.log('Seed complete.');
 }
