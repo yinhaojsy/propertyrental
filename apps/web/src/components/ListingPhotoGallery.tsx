@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatRoomSlotLabel } from '@property-rental/shared';
 import { useGetPhotoConfigQuery, type ListingBadge } from '../store/api';
 import { ListingBadgesOverlay } from './ListingBadgesOverlay';
+import { PhotoSwipeCarousel } from './PhotoSwipeCarousel';
 
 interface GalleryPhoto {
   id: number;
@@ -72,11 +73,10 @@ export function ListingPhotoGallery({ photos, fallbackUrl, title, badges }: List
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const touchStartX = useRef<number | null>(null);
-  const touchDeltaX = useRef(0);
+
+  const fullUrls = useMemo(() => items.map((p) => photoSrc(p, true)), [items]);
 
   const active = items[activeIndex];
-  const src = photoSrc(active!, true);
   const activeCaption = active ? captionFor(active) : null;
 
   const goPrev = useCallback(() => {
@@ -104,25 +104,6 @@ export function ListingPhotoGallery({ photos, fallbackUrl, title, badges }: List
     };
   }, [lightboxOpen, goPrev, goNext]);
 
-  const onTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0]?.clientX ?? null;
-    touchDeltaX.current = 0;
-  };
-
-  const onTouchMove = (e: React.TouchEvent) => {
-    if (touchStartX.current == null) return;
-    touchDeltaX.current = (e.touches[0]?.clientX ?? 0) - touchStartX.current;
-  };
-
-  const onTouchEnd = () => {
-    if (Math.abs(touchDeltaX.current) > 50) {
-      if (touchDeltaX.current < 0) goNext();
-      else goPrev();
-    }
-    touchStartX.current = null;
-    touchDeltaX.current = 0;
-  };
-
   if (items.length === 0) {
     return (
       <div className="flex aspect-[16/10] items-center justify-center rounded-xl bg-gray-100 text-gray-400">
@@ -136,39 +117,25 @@ export function ListingPhotoGallery({ photos, fallbackUrl, title, badges }: List
       <div className="overflow-hidden rounded-xl bg-gray-900">
         <div className="relative aspect-[16/10] bg-black">
           <ListingBadgesOverlay badges={badges} />
-          <button
-            type="button"
-            onClick={() => setLightboxOpen(true)}
-            className="group h-full w-full cursor-zoom-in"
-            aria-label={t('listing.openGallery')}
-          >
-            <img src={src} alt={title} className="h-full w-full object-contain" />
-            <span className="pointer-events-none absolute bottom-3 left-3 max-w-[70%] rounded bg-black/60 px-2 py-1 text-xs text-white">
-              {activeCaption ?? t('listing.tapToExpand')}
-            </span>
-          </button>
+          <PhotoSwipeCarousel
+            urls={fullUrls}
+            activeIndex={activeIndex}
+            onIndexChange={setActiveIndex}
+            alt={title}
+            className="h-full w-full"
+            preload
+            showNavButtons="always"
+            prevLabel={t('listing.prevPhoto')}
+            nextLabel={t('listing.nextPhoto')}
+            onTap={() => setLightboxOpen(true)}
+          />
+          <span className="pointer-events-none absolute bottom-3 left-3 z-10 max-w-[70%] rounded bg-black/60 px-2 py-1 text-xs text-white">
+            {activeCaption ?? t('listing.tapToExpand')}
+          </span>
           {items.length > 1 && (
-            <>
-              <button
-                type="button"
-                onClick={goPrev}
-                className="absolute left-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-xl text-white hover:bg-black/70"
-                aria-label={t('listing.prevPhoto')}
-              >
-                ‹
-              </button>
-              <button
-                type="button"
-                onClick={goNext}
-                className="absolute right-3 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-xl text-white hover:bg-black/70"
-                aria-label={t('listing.nextPhoto')}
-              >
-                ›
-              </button>
-              <span className="pointer-events-none absolute bottom-3 right-3 rounded bg-black/60 px-2 py-1 text-xs text-white">
-                {t('listing.photosCount', { current: activeIndex + 1, total: items.length })}
-              </span>
-            </>
+            <span className="pointer-events-none absolute bottom-3 right-3 z-10 rounded bg-black/60 px-2 py-1 text-xs text-white">
+              {t('listing.photosCount', { current: activeIndex + 1, total: items.length })}
+            </span>
           )}
         </div>
 
@@ -214,41 +181,22 @@ export function ListingPhotoGallery({ photos, fallbackUrl, title, badges }: List
             </button>
           </div>
 
-          <div
-            className="relative flex flex-1 touch-pan-y items-center justify-center"
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
-          >
-            <img
-              src={photoSrc(items[activeIndex]!, true)}
+          <div className="relative min-h-0 flex-1">
+            <PhotoSwipeCarousel
+              urls={fullUrls}
+              activeIndex={activeIndex}
+              onIndexChange={setActiveIndex}
               alt={title}
-              className="max-h-full max-w-full select-none object-contain"
-              draggable={false}
+              className="h-full w-full"
+              preload
+              showNavButtons="desktop"
+              prevLabel={t('listing.prevPhoto')}
+              nextLabel={t('listing.nextPhoto')}
             />
-
             {items.length > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={goPrev}
-                  className="absolute left-2 top-1/2 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-2xl text-white hover:bg-black/70 sm:flex"
-                  aria-label={t('listing.prevPhoto')}
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  onClick={goNext}
-                  className="absolute right-2 top-1/2 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/50 text-2xl text-white hover:bg-black/70 sm:flex"
-                  aria-label={t('listing.nextPhoto')}
-                >
-                  ›
-                </button>
-                <p className="absolute bottom-4 left-0 right-0 text-center text-xs text-white/70 sm:hidden">
-                  {t('listing.swipeHint')}
-                </p>
-              </>
+              <p className="pointer-events-none absolute bottom-4 left-0 right-0 text-center text-xs text-white/70 sm:hidden">
+                {t('listing.swipeHint')}
+              </p>
             )}
           </div>
         </div>
