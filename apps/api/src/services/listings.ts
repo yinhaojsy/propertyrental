@@ -10,7 +10,7 @@ import {
   or,
   sql,
 } from 'drizzle-orm';
-import { convertToSqFt, parseBedFilter, parseBathFilter, deriveBedsBathsFromPhotoMetadata } from '@property-rental/shared';
+import { convertToSqFt, parseBedFilter, parseBathFilter, deriveBedsBathsFromPhotoMetadata, sortPhotosByRoomSlot } from '@property-rental/shared';
 import type { SearchListingsInput, SearchSortOption } from '@property-rental/shared';
 import { db } from '../db/index.js';
 import {
@@ -290,19 +290,21 @@ export async function getListingBySlugOrId(slugOrId: string) {
   const badgeMap = await loadBadgesForListings([row.listing.id]);
   const badges = badgeMap.get(row.listing.id) ?? [];
 
+  const orderedPhotos = sortPhotosByRoomSlot(photos);
+
   return {
     ...formatListingRow(
       row.listing,
       row.sector,
       row.city,
       publicPhotoUrl(
-        photos.find((p) => p.isCover)?.thumbnailKey ??
-          photos[0]?.thumbnailKey ??
-          photos[0]?.storageKey,
+        orderedPhotos.find((p) => p.isCover)?.thumbnailKey ??
+          orderedPhotos[0]?.thumbnailKey ??
+          orderedPhotos[0]?.storageKey,
       ),
       badges,
     ),
-    photos: photos.map((p) => ({
+    photos: orderedPhotos.map((p) => ({
       id: p.id,
       url: publicPhotoUrl(p.thumbnailKey ?? p.storageKey),
       originalUrl: publicPhotoUrl(p.storageKey),
@@ -312,6 +314,7 @@ export async function getListingBySlugOrId(slugOrId: string) {
       roomLabelZh: p.roomLabelZh,
       sortOrder: p.sortOrder,
       isCover: p.isCover,
+      uploadMode: p.uploadMode,
     })),
   };
 }

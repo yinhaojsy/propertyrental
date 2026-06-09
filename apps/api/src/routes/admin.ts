@@ -7,6 +7,7 @@ import {
   createDraftListingSchema,
   listingStatusSchema,
   createUserSchema,
+  updateRolePermissionsSchema,
   photoUploadRequestSchema,
   photoConfirmSchema,
   photoReorderSchema,
@@ -21,6 +22,7 @@ import {
   rentalRecords,
   users,
   roles,
+  rolePermissions,
   userRoles,
   cities,
   sectors,
@@ -151,7 +153,7 @@ router.get('/listings/:id', requirePermission('listings:read'), async (req, res,
 router.post(
   '/listings/draft',
   csrfProtection,
-  requirePermission('listings:write'),
+  requirePermission('listings:create'),
   validateBody(createDraftListingSchema),
   async (req: AuthRequest, res, next) => {
     try {
@@ -206,7 +208,7 @@ router.post(
 router.post(
   '/listings',
   csrfProtection,
-  requirePermission('listings:write'),
+  requirePermission('listings:create'),
   validateBody(createListingSchema),
   async (req: AuthRequest, res, next) => {
     try {
@@ -258,7 +260,7 @@ router.post(
 router.patch(
   '/listings/:id',
   csrfProtection,
-  requirePermission('listings:write'),
+  requirePermission('listings:update'),
   validateBody(updateListingSchema),
   async (req, res, next) => {
     try {
@@ -309,7 +311,7 @@ router.patch(
 router.delete(
   '/listings/:id',
   csrfProtection,
-  requirePermission('listings:write'),
+  requirePermission('listings:delete'),
   async (req, res, next) => {
     try {
       const listingId = parseInt(String(req.params.id), 10);
@@ -371,7 +373,7 @@ router.patch(
 router.post(
   '/listings/:id/photos/presign',
   csrfProtection,
-  requirePermission('listings:write'),
+  requirePermission('listings:update'),
   validateBody(photoUploadRequestSchema),
   async (req, res, next) => {
     try {
@@ -388,7 +390,7 @@ router.post(
 router.post(
   '/listings/:id/photos/confirm',
   csrfProtection,
-  requirePermission('listings:write'),
+  requirePermission('listings:update'),
   validateBody(photoConfirmSchema),
   async (req, res, next) => {
     try {
@@ -443,7 +445,7 @@ router.post(
 router.patch(
   '/listings/:id/photos/reorder',
   csrfProtection,
-  requirePermission('listings:write'),
+  requirePermission('listings:update'),
   validateBody(photoReorderSchema),
   async (req, res, next) => {
     try {
@@ -486,7 +488,7 @@ router.patch(
 router.patch(
   '/listings/:id/photos/metadata',
   csrfProtection,
-  requirePermission('listings:write'),
+  requirePermission('listings:update'),
   validateBody(updateListingPhotosMetadataSchema),
   async (req, res, next) => {
     try {
@@ -518,7 +520,7 @@ router.patch(
 router.delete(
   '/listings/:id/photos',
   csrfProtection,
-  requirePermission('listings:write'),
+  requirePermission('listings:update'),
   async (req, res, next) => {
     try {
       const listingId = parseInt(String(req.params.id), 10);
@@ -542,7 +544,7 @@ router.delete(
 router.delete(
   '/listings/:id/photos/:photoId',
   csrfProtection,
-  requirePermission('listings:write'),
+  requirePermission('listings:update'),
   async (req, res, next) => {
     try {
       const listingId = parseInt(String(req.params.id), 10);
@@ -681,7 +683,7 @@ router.get('/users', requirePermission('users:read'), async (_req, res, next) =>
   }
 });
 
-router.get('/clients', requirePermission('offers:read'), async (_req, res, next) => {
+router.get('/clients', requirePermission('clients:read'), async (_req, res, next) => {
   try {
     const roleRows = await db.select({ userId: userRoles.userId }).from(userRoles);
     const staffUserIds = [...new Set(roleRows.map((r) => r.userId))];
@@ -739,10 +741,56 @@ router.post(
 router.get('/roles', requirePermission('roles:read'), async (_req, res, next) => {
   try {
     const allRoles = await db.select().from(roles);
-    res.json(allRoles);
+    const permissionRows = await db.select().from(rolePermissions);
+    const permissionsByRole = permissionRows.reduce<Record<number, string[]>>((acc, row) => {
+      acc[row.roleId] ??= [];
+      acc[row.roleId]!.push(row.permission);
+      return acc;
+    }, {});
+
+    res.json(
+      allRoles.map((role) => ({
+        ...role,
+        permissions: permissionsByRole[role.id] ?? [],
+      })),
+    );
   } catch (err) {
     next(err);
   }
 });
+
+router.patch(
+  '/roles/:id/permissions',
+  csrfProtection,
+  requirePermission('roles:write'),
+  validateBody(updateRolePermissionsSchema),
+  async (req, res, next) => {
+    try {
+      const roleId = parseInt(String(req.params.id), 10);
+      const [role] = await db.select().from(roles).where(eq(roles.id, roleId));
+      if (!role) {
+        res.status(404).json({ error: 'Role not found' });
+        return;
+      }
+
+      if (role.name === 'super_admin') {
+        res.status(400).json({ error: 'Cannot modify super_admin permissions' });
+        return;
+      }
+
+      const { permissions } = req.body;
+      await db.delete(rolePermissions).where(eq(rolePermissions.roleId, roleId));
+      if (permissions.length > 0) {
+        await db.insert(rolePermissions).values(
+          permissions.map((permission: string) => ({ roleId, permission })),
+        );
+      }
+
+      res.json({ ok: true, permissions });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 export default router;

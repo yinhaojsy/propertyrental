@@ -13,7 +13,9 @@ import {
   useGetAdminOffersQuery,
   useCreateRentalRecordMutation,
   useDeleteListingMutation,
+  useGetMeQuery,
 } from '../../store/api';
+import { userHasPermission } from '../../lib/permissions';
 import { SearchableSelect } from '../../components/SearchableSelect';
 import { NumberInput } from '../../components/NumberInput';
 import { ListingPhotoUpload, type PhotoItem } from '../../components/ListingPhotoUpload';
@@ -107,6 +109,8 @@ export function AdminListingEditPage() {
   });
   const [createRentalRecord] = useCreateRentalRecordMutation();
   const [deleteListing] = useDeleteListingMutation();
+  const { data: meData } = useGetMeQuery();
+  const canDelete = userHasPermission(meData?.user?.permissions, 'listings:delete');
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
@@ -347,7 +351,7 @@ export function AdminListingEditPage() {
         <h1 className="text-2xl font-bold">
           {isNew && !effectiveListingId ? t('admin.newListing') : t('admin.editListing')}
         </h1>
-        {effectiveListingId && (
+        {effectiveListingId && canDelete && (
           <button
             type="button"
             onClick={() => void handleDeleteListing()}

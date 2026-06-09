@@ -11,7 +11,7 @@ const router = Router();
 
 router.get(
   '/settings/photo-compression',
-  requirePermission('listings:read'),
+  requirePermission('settings:read'),
   async (_req, res, next) => {
     try {
       const settings = await getPhotoCompressionSettings();
@@ -24,7 +24,7 @@ router.get(
 
 router.put(
   '/settings/photo-compression',
-  requirePermission('listings:write'),
+  requirePermission('settings:write'),
   csrfProtection,
   validateBody(photoCompressionSettingsSchema),
   async (req, res, next) => {

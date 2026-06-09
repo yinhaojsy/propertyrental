@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, Navigate } from 'react-router-dom';
 import { useGetMeQuery, useLogoutMutation } from '../store/api';
 import { useAppSelector } from '../store/hooks';
 import { hasStaffAccess } from '../lib/staff';
+import { userHasPermission } from '../lib/permissions';
 import { LanguageToggle } from './LanguageToggle';
 
 export function StaffPortalLayout() {
@@ -30,26 +31,37 @@ export function StaffPortalLayout() {
   }
 
   const user = meData.user;
-  const canManageUsers = user.permissions?.includes('users:read');
-  const canViewClients = user.permissions?.includes('offers:read');
-  const canManageLocations =
-    user.permissions?.includes('locations:read') || user.permissions?.includes('listings:write');
+  const perms = user.permissions;
+  const canManageUsers = userHasPermission(perms, 'users:read');
+  const canViewClients = userHasPermission(perms, 'clients:read');
+  const canManageLocations = userHasPermission(perms, 'locations:read');
+  const canManagePhotoConfig = userHasPermission(perms, 'photo-config:read');
+  const canManageBadges = userHasPermission(perms, 'badges:read');
+  const canManageSettings = userHasPermission(perms, 'settings:read');
+  const canManageRoles = userHasPermission(perms, 'roles:read');
 
   const nav = [
     { to: '/staff', label: t('admin.dashboard'), end: true },
     { to: '/staff/listings', label: t('admin.listings') },
-    { to: '/staff/offers', label: t('admin.offers') },
+    ...(userHasPermission(perms, 'offers:read')
+      ? [{ to: '/staff/offers', label: t('admin.offers'), end: false }]
+      : []),
     ...(canViewClients ? [{ to: '/staff/clients', label: t('admin.clients'), end: false }] : []),
     ...(canManageLocations
       ? [
           { to: '/staff/locations', label: t('admin.locations'), end: false },
           { to: '/staff/property-types', label: t('admin.propertyTypesNav'), end: false },
-          { to: '/staff/photo-config', label: t('admin.photoConfigNav'), end: false },
-          { to: '/staff/badges', label: t('admin.badgesNav'), end: false },
-          { to: '/staff/settings', label: t('admin.settingsNav'), end: false },
         ]
       : []),
+    ...(canManagePhotoConfig
+      ? [{ to: '/staff/photo-config', label: t('admin.photoConfigNav'), end: false }]
+      : []),
+    ...(canManageBadges ? [{ to: '/staff/badges', label: t('admin.badgesNav'), end: false }] : []),
+    ...(canManageSettings
+      ? [{ to: '/staff/settings', label: t('admin.settingsNav'), end: false }]
+      : []),
     ...(canManageUsers ? [{ to: '/staff/users', label: t('admin.users'), end: false }] : []),
+    ...(canManageRoles ? [{ to: '/staff/roles', label: t('admin.rolesNav'), end: false }] : []),
   ];
 
   return (

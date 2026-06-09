@@ -21,6 +21,7 @@ import {
   deriveBedsBathsFromPhotoMetadata,
   formatRoomSlotLabel,
   resolveFloorsForSubtype,
+  sortPhotosByRoomSlot,
   suggestRoomLabels,
   type PhotoMetadata,
 } from '@property-rental/shared';
@@ -364,6 +365,18 @@ export function StructuredPhotoUpload({
     );
   };
 
+  const reorderByRoomSlot = async (allPhotos: PhotoItem[], targetListingId: number) => {
+    const normalized = sortPhotosByRoomSlot(allPhotos);
+    const flatSorted = [...allPhotos].sort((a, b) => a.sortOrder - b.sortOrder);
+    const needsReorder = normalized.some((p, index) => p.id !== flatSorted[index]?.id);
+    if (!needsReorder) return;
+
+    await reorderPhotos({
+      listingId: targetListingId,
+      photos: normalized.map((p, index) => ({ id: p.id, sortOrder: index })),
+    }).unwrap();
+  };
+
   const updateSlot = async (
     slotId: string,
     patch: Partial<Pick<UploadSlot, 'floor' | 'roomType'>>,
@@ -385,7 +398,7 @@ export function StructuredPhotoUpload({
       setError(null);
       setUpdatingSlotId(slotId);
       try {
-        const result = await updatePhotosMetadata({
+        const result = (await updatePhotosMetadata({
           listingId,
           photos: slotPhotoList.map((p) => ({
             id: p.id,
@@ -394,8 +407,19 @@ export function StructuredPhotoUpload({
             roomLabel: labels.labelEn,
             roomLabelZh: labels.labelZh,
           })),
-        }).unwrap();
+        }).unwrap()) as { derived?: { beds: number; baths: number } };
         applyDerived(result.derived);
+        const updated = sortedPhotos.map((p) => {
+          if (!excludeIds.has(p.id)) return p;
+          return {
+            ...p,
+            floor: showFloor ? floor : null,
+            roomType,
+            roomLabel: labels.labelEn,
+            roomLabelZh: labels.labelZh,
+          };
+        });
+        await reorderByRoomSlot(updated, listingId);
         onRefetch();
       } catch (err) {
         setError(err instanceof Error ? err.message : t('common.error'));
@@ -477,6 +501,7 @@ export function StructuredPhotoUpload({
       const id = await onEnsureListing();
       let sortOrder = sortedPhotos.length;
       const hasAnyPhoto = sortedPhotos.length > 0;
+      const newPhotos: PhotoItem[] = [];
 
       for (const file of imageFiles) {
         const { uploadUrl, storageKey } = await presignPhoto({
@@ -506,11 +531,37 @@ export function StructuredPhotoUpload({
             isCover: !hasAnyPhoto && sortOrder === sortedPhotos.length,
             fileSizeBytes: file.size,
           },
-        }).unwrap()) as { derived?: { beds: number; baths: number } };
+        }).unwrap()) as {
+          photo: {
+            id: number;
+            sortOrder: number;
+            floor: string | null;
+            roomType: string | null;
+            roomLabel: string | null;
+            roomLabelZh: string | null;
+            isCover: boolean;
+            fileSizeBytes: number | null;
+          };
+          derived?: { beds: number; baths: number };
+        };
 
         applyDerived(result.derived);
+        newPhotos.push({
+          id: result.photo.id,
+          url: null,
+          sortOrder: result.photo.sortOrder,
+          floor: result.photo.floor,
+          roomType: result.photo.roomType,
+          roomLabel: result.photo.roomLabel,
+          roomLabelZh: result.photo.roomLabelZh,
+          uploadMode: 'structured',
+          isCover: result.photo.isCover,
+          fileSizeBytes: result.photo.fileSizeBytes,
+        });
         sortOrder += 1;
       }
+
+      await reorderByRoomSlot([...sortedPhotos, ...newPhotos], id);
       onRefetch();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('common.error'));

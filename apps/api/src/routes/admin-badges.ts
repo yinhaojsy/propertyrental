@@ -19,7 +19,7 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, '');
 }
 
-router.get('/badges', requirePermission('listings:read'), async (_req, res, next) => {
+router.get('/badges', requirePermission('badges:read'), async (_req, res, next) => {
   try {
     const rows = await db
       .select()
@@ -33,7 +33,7 @@ router.get('/badges', requirePermission('listings:read'), async (_req, res, next
 
 router.post(
   '/badges',
-  requirePermission('listings:write'),
+  requirePermission('badges:write'),
   csrfProtection,
   validateBody(createListingBadgeSchema),
   async (req, res, next) => {
@@ -61,7 +61,7 @@ router.post(
 
 router.patch(
   '/badges/:id',
-  requirePermission('listings:write'),
+  requirePermission('badges:write'),
   csrfProtection,
   validateBody(updateListingBadgeSchema),
   async (req, res, next) => {
@@ -85,7 +85,7 @@ router.patch(
 
 router.delete(
   '/badges/:id',
-  requirePermission('listings:write'),
+  requirePermission('badges:write'),
   csrfProtection,
   async (req, res, next) => {
     try {
@@ -107,7 +107,7 @@ router.delete(
 
 router.put(
   '/listings/:id/badges',
-  requirePermission('listings:write'),
+  requirePermission('badges:write'),
   csrfProtection,
   validateBody(setListingBadgesSchema),
   async (req, res, next) => {

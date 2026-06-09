@@ -207,7 +207,7 @@ export interface User {
 export const api = createApi({
   reducerPath: 'api',
   baseQuery,
-  tagTypes: ['Listings', 'Listing', 'Offers', 'Users', 'AdminListings', 'Cities', 'Sectors', 'PropertyTypes', 'PhotoConfig', 'Badges', 'Settings', 'Me'],
+  tagTypes: ['Listings', 'Listing', 'Offers', 'Users', 'Roles', 'AdminListings', 'Cities', 'Sectors', 'PropertyTypes', 'PhotoConfig', 'Badges', 'Settings', 'Me'],
   endpoints: (builder) => ({
     getCsrf: builder.query<{ csrfToken: string }, void>({
       query: () => '/api/auth/csrf',
@@ -437,8 +437,23 @@ export const api = createApi({
     createUser: builder.mutation<unknown, Record<string, unknown>>({
       query: (body) => ({ url: '/api/admin/users', method: 'POST', body }),
     }),
-    getRoles: builder.query<unknown[], void>({
+    getRoles: builder.query<
+      Array<{ id: number; name: string; description: string | null; permissions: string[] }>,
+      void
+    >({
       query: () => '/api/admin/roles',
+      providesTags: ['Roles'],
+    }),
+    updateRolePermissions: builder.mutation<
+      { ok: boolean; permissions: string[] },
+      { id: number; permissions: string[] }
+    >({
+      query: ({ id, permissions }) => ({
+        url: `/api/admin/roles/${id}/permissions`,
+        method: 'PATCH',
+        body: { permissions },
+      }),
+      invalidatesTags: ['Roles'],
     }),
     getAdminCities: builder.query<City[], void>({
       query: () => '/api/admin/cities',
@@ -667,6 +682,7 @@ export const {
   useGetAdminClientsQuery,
   useCreateUserMutation,
   useGetRolesQuery,
+  useUpdateRolePermissionsMutation,
   useGetPropertyTypesQuery,
   useGetAdminCitiesQuery,
   useCreateCityMutation,

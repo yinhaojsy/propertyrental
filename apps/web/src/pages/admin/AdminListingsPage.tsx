@@ -3,10 +3,12 @@ import { useTranslation } from 'react-i18next';
 import {
   useGetAdminListingsQuery,
   useGetAdminBadgesQuery,
+  useGetMeQuery,
   useSetListingBadgesMutation,
   useDeleteListingMutation,
   type ListingBadge,
 } from '../../store/api';
+import { userHasPermission } from '../../lib/permissions';
 
 interface AdminListingRow {
   id: number;
@@ -19,7 +21,10 @@ interface AdminListingRow {
 
 export function AdminListingsPage() {
   const { t } = useTranslation();
+  const { data: meData } = useGetMeQuery();
   const { data: listings, isLoading } = useGetAdminListingsQuery();
+  const canCreate = userHasPermission(meData?.user?.permissions, 'listings:create');
+  const canDelete = userHasPermission(meData?.user?.permissions, 'listings:delete');
   const { data: allBadges = [] } = useGetAdminBadgesQuery();
   const [setListingBadges] = useSetListingBadgesMutation();
   const [deleteListing] = useDeleteListingMutation();
@@ -44,12 +49,14 @@ export function AdminListingsPage() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t('admin.listings')}</h1>
-        <Link
-          to="/staff/listings/new"
-          className="rounded-xl bg-brand px-4 py-2 text-sm font-medium text-white"
-        >
-          {t('admin.newListing')}
-        </Link>
+        {canCreate && (
+          <Link
+            to="/staff/listings/new"
+            className="rounded-xl bg-brand px-4 py-2 text-sm font-medium text-white"
+          >
+            {t('admin.newListing')}
+          </Link>
+        )}
       </div>
       <div className="overflow-x-auto rounded-xl bg-white shadow-sm">
         <table className="w-full text-sm">
@@ -112,13 +119,15 @@ export function AdminListingsPage() {
                       <Link to={`/staff/listings/${listing.id}/edit`} className="text-brand">
                         {t('admin.edit')}
                       </Link>
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteListing(listing)}
-                        className="text-red-600 hover:underline"
-                      >
-                        {t('admin.delete')}
-                      </button>
+                      {canDelete && (
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteListing(listing)}
+                          className="text-red-600 hover:underline"
+                        >
+                          {t('admin.delete')}
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>

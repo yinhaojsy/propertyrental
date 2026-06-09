@@ -20,6 +20,23 @@ export interface AuthRequest extends Request {
   user?: TokenPayload & { permissions: Permission[] };
 }
 
+const LEGACY_PERMISSION_ALIASES: Record<string, Permission[]> = {
+  'listings:write': ['listings:create', 'listings:update', 'listings:delete'],
+};
+
+function expandPermissions(permissions: string[]): Permission[] {
+  const expanded = new Set<Permission>();
+  for (const permission of permissions) {
+    const aliases = LEGACY_PERMISSION_ALIASES[permission];
+    if (aliases) {
+      for (const alias of aliases) expanded.add(alias);
+      continue;
+    }
+    expanded.add(permission as Permission);
+  }
+  return [...expanded];
+}
+
 export async function getUserPermissions(userId: number): Promise<Permission[]> {
   const rows = await db
     .select({ permission: rolePermissions.permission })
@@ -28,7 +45,8 @@ export async function getUserPermissions(userId: number): Promise<Permission[]> 
     .innerJoin(rolePermissions, eq(roles.id, rolePermissions.roleId))
     .where(eq(userRoles.userId, userId));
 
-  return [...new Set(rows.map((r) => r.permission as Permission))];
+  const raw = [...new Set(rows.map((r) => r.permission))];
+  return expandPermissions(raw);
 }
 
 export async function authenticate(

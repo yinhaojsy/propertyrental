@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { formatRoomSlotLabel } from '@property-rental/shared';
+import { formatRoomSlotLabel, sortPhotosByRoomSlot } from '@property-rental/shared';
 import { useGetPhotoConfigQuery, type ListingBadge } from '../store/api';
 import { ListingBadgesOverlay } from './ListingBadgesOverlay';
 import { PhotoSwipeCarousel } from './PhotoSwipeCarousel';
@@ -13,6 +13,9 @@ interface GalleryPhoto {
   roomType?: string | null;
   roomLabel?: string | null;
   roomLabelZh?: string | null;
+  sortOrder?: number;
+  isCover?: boolean;
+  uploadMode?: 'structured' | 'bulk' | null;
 }
 
 interface ListingPhotoGalleryProps {
@@ -64,12 +67,16 @@ export function ListingPhotoGallery({ photos, fallbackUrl, title, badges }: List
     [formatOptions],
   );
 
-  const items =
-    photos.length > 0
-      ? photos
-      : fallbackUrl
-        ? [{ id: 0, url: fallbackUrl, originalUrl: fallbackUrl }]
-        : [];
+  const items = useMemo(() => {
+    if (photos.length === 0) {
+      return fallbackUrl ? [{ id: 0, url: fallbackUrl, originalUrl: fallbackUrl }] : [];
+    }
+    const withOrder = photos.map((p, index) => ({
+      ...p,
+      sortOrder: p.sortOrder ?? index,
+    }));
+    return sortPhotosByRoomSlot(withOrder);
+  }, [photos, fallbackUrl]);
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -129,9 +136,15 @@ export function ListingPhotoGallery({ photos, fallbackUrl, title, badges }: List
             nextLabel={t('listing.nextPhoto')}
             onTap={() => setLightboxOpen(true)}
           />
-          <span className="pointer-events-none absolute bottom-3 left-3 z-10 max-w-[70%] rounded bg-black/60 px-2 py-1 text-xs text-white">
-            {activeCaption ?? t('listing.tapToExpand')}
-          </span>
+          {activeCaption ? (
+            <span className="pointer-events-none absolute bottom-4 left-1/2 z-10 max-w-[85%] -translate-x-1/2 truncate rounded-md bg-black/70 px-4 py-2 text-center text-sm font-medium text-white shadow-lg">
+              {activeCaption}
+            </span>
+          ) : (
+            <span className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded bg-black/60 px-2 py-1 text-xs text-white/90">
+              {t('listing.tapToExpand')}
+            </span>
+          )}
           {items.length > 1 && (
             <span className="pointer-events-none absolute bottom-3 right-3 z-10 rounded bg-black/60 px-2 py-1 text-xs text-white">
               {t('listing.photosCount', { current: activeIndex + 1, total: items.length })}
@@ -168,9 +181,7 @@ export function ListingPhotoGallery({ photos, fallbackUrl, title, badges }: List
         >
           <div className="flex items-center justify-between px-4 py-3 text-white">
             <span className="text-sm">
-              {activeCaption
-                ? `${activeCaption} · ${t('listing.photosCount', { current: activeIndex + 1, total: items.length })}`
-                : t('listing.photosCount', { current: activeIndex + 1, total: items.length })}
+              {t('listing.photosCount', { current: activeIndex + 1, total: items.length })}
             </span>
             <button
               type="button"
@@ -193,7 +204,12 @@ export function ListingPhotoGallery({ photos, fallbackUrl, title, badges }: List
               prevLabel={t('listing.prevPhoto')}
               nextLabel={t('listing.nextPhoto')}
             />
-            {items.length > 1 && (
+            {activeCaption && (
+              <span className="pointer-events-none absolute bottom-6 left-1/2 z-10 max-w-[90%] -translate-x-1/2 truncate rounded-md bg-black/70 px-4 py-2 text-center text-sm font-medium text-white shadow-lg sm:bottom-8 sm:text-base">
+                {activeCaption}
+              </span>
+            )}
+            {items.length > 1 && !activeCaption && (
               <p className="pointer-events-none absolute bottom-4 left-0 right-0 text-center text-xs text-white/70 sm:hidden">
                 {t('listing.swipeHint')}
               </p>

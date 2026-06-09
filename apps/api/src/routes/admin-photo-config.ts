@@ -28,7 +28,7 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, '');
 }
 
-router.get('/photo-config', requirePermission('locations:read'), async (_req, res, next) => {
+router.get('/photo-config', requirePermission('photo-config:read'), async (_req, res, next) => {
   try {
     const floors = await db.select().from(photoFloors).orderBy(photoFloors.sortOrder, photoFloors.nameEn);
     const roomTypes = await db
@@ -45,7 +45,7 @@ router.get('/photo-config', requirePermission('locations:read'), async (_req, re
 
 router.post(
   '/photo-floors',
-  requirePermission('locations:write'),
+  requirePermission('photo-config:write'),
   csrfProtection,
   validateBody(createPhotoFloorSchema),
   async (req, res, next) => {
@@ -70,7 +70,7 @@ router.post(
 
 router.patch(
   '/photo-floors/:id',
-  requirePermission('locations:write'),
+  requirePermission('photo-config:write'),
   csrfProtection,
   validateBody(updatePhotoFloorSchema),
   async (req, res, next) => {
@@ -94,7 +94,7 @@ router.patch(
 
 router.delete(
   '/photo-floors/:id',
-  requirePermission('locations:write'),
+  requirePermission('photo-config:write'),
   csrfProtection,
   async (req, res, next) => {
     try {
@@ -123,7 +123,7 @@ router.delete(
 
 router.post(
   '/photo-room-types',
-  requirePermission('locations:write'),
+  requirePermission('photo-config:write'),
   csrfProtection,
   validateBody(createPhotoRoomTypeSchema),
   async (req, res, next) => {
@@ -151,7 +151,7 @@ router.post(
 
 router.patch(
   '/photo-room-types/:id',
-  requirePermission('locations:write'),
+  requirePermission('photo-config:write'),
   csrfProtection,
   validateBody(updatePhotoRoomTypeSchema),
   async (req, res, next) => {
@@ -175,7 +175,7 @@ router.patch(
 
 router.delete(
   '/photo-room-types/:id',
-  requirePermission('locations:write'),
+  requirePermission('photo-config:write'),
   csrfProtection,
   async (req, res, next) => {
     try {
@@ -204,7 +204,7 @@ router.delete(
 
 router.put(
   '/photo-floors/:id/room-types',
-  requirePermission('locations:write'),
+  requirePermission('photo-config:write'),
   csrfProtection,
   validateBody(setPhotoFloorRoomTypesSchema),
   async (req, res, next) => {
@@ -253,7 +253,7 @@ router.put(
 
 router.put(
   '/photo-subtypes/:subtype/floors',
-  requirePermission('locations:write'),
+  requirePermission('photo-config:write'),
   csrfProtection,
   validateBody(setPhotoSubtypeFloorsSchema),
   async (req, res, next) => {

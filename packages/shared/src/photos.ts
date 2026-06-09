@@ -25,6 +25,45 @@ function roomSlotKey(photo: PhotoMetadata): string {
   return `${floor}::${photo.roomType}::${label}`;
 }
 
+export function isStructuredPhoto(photo: PhotoMetadata): boolean {
+  return photo.uploadMode !== 'bulk' && !!photo.roomType && !!photo.roomLabel;
+}
+
+/** Group structured photos by room slot; bulk photos keep their relative order at the end. */
+export function sortPhotosByRoomSlot<
+  T extends PhotoMetadata & { sortOrder: number; isCover?: boolean },
+>(photos: T[]): T[] {
+  if (photos.length === 0) return [];
+
+  const cover = photos.find((p) => p.isCover);
+  const rest = cover ? photos.filter((p) => p !== cover) : [...photos];
+
+  const groups = new Map<string, T[]>();
+  const bulk: T[] = [];
+
+  for (const photo of rest) {
+    if (!isStructuredPhoto(photo)) {
+      bulk.push(photo);
+      continue;
+    }
+    const key = roomSlotKey(photo);
+    const group = groups.get(key) ?? [];
+    group.push(photo);
+    groups.set(key, group);
+  }
+
+  const grouped = [...groups.entries()]
+    .sort(([, a], [, b]) => {
+      const minA = Math.min(...a.map((p) => p.sortOrder));
+      const minB = Math.min(...b.map((p) => p.sortOrder));
+      return minA - minB;
+    })
+    .flatMap(([, group]) => [...group].sort((a, b) => a.sortOrder - b.sortOrder));
+
+  const ordered = [...grouped, ...bulk.sort((a, b) => a.sortOrder - b.sortOrder)];
+  return cover ? [cover, ...ordered] : ordered;
+}
+
 export const ROOM_TYPES_WITHOUT_FLOOR = ['garage', 'lawn', 'terrace'] as const;
 
 export function roomTypeRequiresFloor(roomType: string): boolean {

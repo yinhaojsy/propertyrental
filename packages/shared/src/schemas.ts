@@ -9,6 +9,7 @@ import {
   LISTING_STATUSES,
   LISTING_TYPES,
   RESIDENTIAL_SUBTYPES,
+  PERMISSIONS,
   ROLES,
   SEARCH_SORT_OPTIONS,
 } from './enums.js';
@@ -124,6 +125,10 @@ export const createUserSchema = z.object({
   name: z.string().min(1).max(100),
   role: z.enum(ROLES),
   phone: z.string().optional(),
+});
+
+export const updateRolePermissionsSchema = z.object({
+  permissions: z.array(z.enum(PERMISSIONS)),
 });
 
 export const photoUploadRequestSchema = z.object({
